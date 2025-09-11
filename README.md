@@ -60,8 +60,6 @@ cd italian_cge_model
 python -m venv italian_cge_env
 # On Windows:
 italian_cge_env\Scripts\activate
-# On macOS/Linux:
-source italian_cge_env/bin/activate
 ```
 
 3. Install dependencies:
@@ -108,30 +106,9 @@ python ETS1_scenario.py
 
 The model generates comprehensive outputs including:
 - GDP evolution by scenario
-- Sectoral energy demand (TWh)
-- CO2 emissions trajectories (Mt)
+- Sectoral energy demand (MW)
+- CO2 emissions trajectories (MtCo2)
 - Regional economic indicators
 - Policy impact assessments
 
-## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-feature`)
-3. Commit changes (`git commit -am 'Add new feature'`)
-4. Push to branch (`git push origin feature/new-feature`)
-5. Create Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Citation
-
-If you use this model in your research, please cite:
-```
-[Your Name]. Italian CGE Model. 2025. GitHub repository.
-```
-
-## Contact
-
-For questions or collaboration opportunities, please contact [your email].
