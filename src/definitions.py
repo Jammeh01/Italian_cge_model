@@ -1,0 +1,492 @@
+"""
+Definitions and Sets for Italian CGE Model
+Based on actual SAM data with Italian regional disaggregation
+Dynamic recursive model structure following ThreeME approach
+Author: Italian CGE Model (2021-2050)
+"""
+
+import pandas as pd
+import numpy as np
+import os
+
+
+class ModelDefinitions:
+    """
+    Define all sets, parameters, and initial data structures for the Italian CGE model
+    Based on actual SAM.xlsx data structure
+    """
+
+    def __init__(self):
+        # Model time structure
+        self.base_year = 2021
+        self.final_year = 2050
+        self.time_periods = list(range(2021, 2051))  # Annual time steps
+
+        # Base year calibration targets (Updated to correct 2021 values)
+        # €1,782 billion (current prices) - 2021 actual GDP
+        self.base_year_gdp = 1782.0
+        self.base_year_population = 59.13  # 59.13 million people - 2021 actual population
+
+        # Define Italian macro-regions for household disaggregation (actual SAM structure)
+        self.italian_regions = {
+            'NW': {'name': 'Northwest', 'sam_name': 'Households(NW)', 'description': 'Lombardy, Piedmont, Valle d\'Aosta, Liguria'},
+            'NE': {'name': 'Northeast', 'sam_name': 'Households(NE)', 'description': 'Veneto, Trentino-Alto Adige, Friuli-Venezia Giulia, Emilia-Romagna'},
+            'CENTER': {'name': 'Center', 'sam_name': 'Households(Centre)', 'description': 'Tuscany, Umbria, Marche, Lazio'},
+            'SOUTH': {'name': 'South', 'sam_name': 'Households(South)', 'description': 'Abruzzo, Molise, Campania, Puglia, Basilicata, Calabria'},
+            'ISLANDS': {'name': 'Islands', 'sam_name': 'Households(Islands)', 'description': 'Sicily, Sardinia'}
+        }
+
+        # Regional population shares (2021 data)
+        self.regional_population_shares = {
+            'NW': 0.269,    # 26.9% - 15.9 million
+            'NE': 0.191,    # 19.1% - 11.3 million
+            'CENTER': 0.199,  # 19.9% - 11.8 million
+            'SOUTH': 0.233,  # 23.3% - 13.8 million
+            'ISLANDS': 0.108  # 10.8% - 6.4 million
+        }
+
+        # Load actual SAM structure
+        self.load_sam_structure()
+
+        # Define energy sectors (disaggregated in SAM)
+        self.energy_sectors_detail = {
+            'ELECTRICITY': {
+                'sam_name': 'Electricity',
+                'description': 'Renewable electricity generation',
+                # kg CO2/kWh (average grid factor including renewables)
+                'co2_factor': 0.350
+            },
+            'GAS': {
+                'sam_name': 'Gas',
+                'description': 'Natural gas supply',
+                'co2_factor': 2.034  # kg CO2/m³
+            },
+            'OTHER_ENERGY': {
+                'sam_name': 'Other Energy',
+                'description': 'Oil products and other energy',
+                'co2_factor': 2.68   # kg CO2/liter (average)
+            }
+        }
+
+        # Define transport sectors (disaggregated in SAM)
+        self.transport_sectors_detail = {
+            'ROAD': {
+                'sam_name': 'Road Transport',
+                'description': 'Road freight and passenger transport',
+                'co2_factor': 2.31  # kg CO2/liter fuel
+            },
+            'RAIL': {
+                'sam_name': 'Rail Transport',
+                'description': 'Railway transport',
+                'co2_factor': 0.85  # kg CO2/passenger-km
+            },
+            'AIR': {
+                'sam_name': 'Air Transport',
+                'description': 'Aviation transport',
+                'co2_factor': 3.15  # kg CO2/liter aviation fuel
+            },
+            'WATER': {
+                'sam_name': 'Water Transport',
+                'description': 'Maritime and inland water transport',
+                'co2_factor': 3.17  # kg CO2/liter marine fuel
+            },
+            'OTHER_TRANSPORT': {
+                'sam_name': 'Other Transport',
+                'description': 'Other transport services',
+                'co2_factor': 2.50  # Average
+            }
+        }
+
+        # Initialize model structure
+        self.initialize_model_structure()
+
+        # ETS policy definitions
+        self.define_ets_policies()
+
+    def load_sam_structure(self):
+        """Load actual SAM structure from SAM.xlsx"""
+
+        try:
+            # Try to load the actual SAM data
+            sam_file_path = os.path.join('data', 'SAM.xlsx')
+            if not os.path.exists(sam_file_path):
+                sam_file_path = 'SAM.xlsx'
+
+            if os.path.exists(sam_file_path):
+                self.sam_data = pd.read_excel(sam_file_path, index_col=0)
+                print(
+                    f"Successfully loaded actual SAM with {self.sam_data.shape[0]} accounts")
+                self.extract_sam_structure_from_data()
+            else:
+                print("SAM.xlsx not found, using known structure from code")
+                self.use_known_sam_structure()
+
+        except Exception as e:
+            print(f"Error loading SAM: {e}. Using known structure.")
+            self.use_known_sam_structure()
+
+    def extract_sam_structure_from_data(self):
+        """Extract structure from loaded SAM data"""
+
+        all_accounts = list(self.sam_data.columns)
+
+        # Production sectors (from actual SAM)
+        self.production_sectors_sam = [
+            'Agriculture', 'Industry', 'Electricity', 'Gas', 'Other Energy',
+            'Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport',
+            'Other Transport', 'other Sectors (14)'
+        ]
+
+        # Verify sectors exist in SAM
+        self.production_sectors_sam = [
+            s for s in self.production_sectors_sam if s in all_accounts]
+
+        # Household regions from SAM
+        self.household_regions_sam = [
+            'Households(NW)', 'Households(NE)', 'Households(Centre)',
+            'Households(South)', 'Households(Islands)'
+        ]
+
+        # Factors from SAM
+        self.factors_sam = ['Labour', 'Capital']
+
+        # Institutions from SAM
+        self.institutions_sam = ['Government',
+                                 'Firms', 'Capital Account', 'Rest of World']
+
+        # Additional SAM accounts
+        self.other_sam_accounts = [acc for acc in all_accounts
+                                   if acc not in (self.production_sectors_sam +
+                                                  self.household_regions_sam +
+                                                  self.factors_sam +
+                                                  self.institutions_sam)]
+
+        print(
+            f"Extracted {len(self.production_sectors_sam)} production sectors")
+        print(f"Extracted {len(self.household_regions_sam)} household regions")
+        print(f"Other SAM accounts: {self.other_sam_accounts}")
+
+    def use_known_sam_structure(self):
+        """Use known SAM structure from the code"""
+
+        self.production_sectors_sam = [
+            'Agriculture', 'Industry', 'Electricity', 'Gas', 'Other Energy',
+            'Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport',
+            'Other Transport', 'other Sectors (14)'
+        ]
+
+        self.household_regions_sam = [
+            'Households(NW)', 'Households(NE)', 'Households(Centre)',
+            'Households(South)', 'Households(Islands)'
+        ]
+
+        self.factors_sam = ['Labour', 'Capital']
+        self.institutions_sam = ['Government',
+                                 'Firms', 'Capital Account', 'Rest of World']
+        self.other_sam_accounts = ['Taxes on products and imports']
+
+    def initialize_model_structure(self):
+        """Initialize all model sets and mappings"""
+
+        # Create model sector codes
+        self.sector_mapping = {
+            'Agriculture': 'AGR',
+            'Industry': 'IND',
+            'Electricity': 'ELEC',
+            'Gas': 'GAS',
+            'Other Energy': 'OENERGY',
+            'Road Transport': 'ROAD',
+            'Rail Transport': 'RAIL',
+            'Air Transport': 'AIR',
+            'Water Transport': 'WATER',
+            'Other Transport': 'OTRANS',
+            'other Sectors (14)': 'SERVICES'
+        }
+
+        # Model sets
+        self.sectors = list(self.sector_mapping.values())
+        self.factors = ['LAB', 'CAP']
+        self.households = list(self.italian_regions.keys())
+
+        # Energy and transport classifications
+        self.energy_sectors = ['ELEC', 'GAS', 'OENERGY']
+        self.transport_sectors = ['ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS']
+
+        # Non-energy sectors
+        self.non_energy_sectors = [
+            s for s in self.sectors if s not in self.energy_sectors]
+
+        # Service sectors (for ETS2)
+        self.service_sectors = ['SERVICES']
+
+        print(f"Model structure initialized:")
+        print(f"  Production sectors: {len(self.sectors)}")
+        print(f"  Energy sectors: {self.energy_sectors}")
+        print(f"  Transport sectors: {self.transport_sectors}")
+        print(f"  Household regions: {self.households}")
+
+    def define_ets_policies(self):
+        """Define ETS policy parameters and coverage"""
+
+        # ETS1 Policy (starts 2021)
+        self.ets1_policy = {
+            'start_year': 2021,
+            'base_carbon_price': 100.0,  # €100/tCO2 in 2021
+            'price_growth_rate': 0.05,   # 5% annual growth
+            'price_cap': 300.0,          # Maximum €300/tCO2
+            # Based on your specification
+            'covered_sectors': ['IND', 'GAS', 'OENERGY', 'AIR', 'WATER'],
+            'free_allocation_rate': 0.8,  # 80% free allowances initially
+            'free_allocation_decline': 0.02,  # 2% annual decline
+        }
+
+        # ETS2 Policy (starts 2027)
+        self.ets2_policy = {
+            'start_year': 2027,
+            'base_carbon_price': 45.0,   # €45/tCO2 in 2027
+            'price_growth_rate': 0.07,   # 7% annual growth
+            'price_cap': 250.0,          # Maximum €250/tCO2
+            # Based on your specification
+            'covered_sectors': ['ROAD', 'OTRANS', 'SERVICES'],
+            'free_allocation_rate': 0.6,  # 60% free allowances initially
+            'free_allocation_decline': 0.03,  # 3% annual decline
+        }
+
+        # Combined ETS coverage
+        self.all_ets_sectors = list(set(self.ets1_policy['covered_sectors'] +
+                                        self.ets2_policy['covered_sectors']))
+
+        # Non-ETS sectors
+        self.non_ets_sectors = [
+            s for s in self.sectors if s not in self.all_ets_sectors]
+
+    def get_carbon_price(self, year, policy='ETS1'):
+        """Calculate carbon price for given year and policy"""
+
+        if policy == 'ETS1':
+            if year < self.ets1_policy['start_year']:
+                return 0.0
+
+            years_elapsed = year - self.ets1_policy['start_year']
+            base_price = self.ets1_policy['base_carbon_price']
+            growth_rate = self.ets1_policy['price_growth_rate']
+            price_cap = self.ets1_policy['price_cap']
+
+            price = base_price * (1 + growth_rate) ** years_elapsed
+            return min(price, price_cap)
+
+        elif policy == 'ETS2':
+            if year < self.ets2_policy['start_year']:
+                return 0.0
+
+            years_elapsed = year - self.ets2_policy['start_year']
+            base_price = self.ets2_policy['base_carbon_price']
+            growth_rate = self.ets2_policy['price_growth_rate']
+            price_cap = self.ets2_policy['price_cap']
+
+            price = base_price * (1 + growth_rate) ** years_elapsed
+            return min(price, price_cap)
+
+        return 0.0
+
+    def get_ets_coverage(self, year):
+        """Get ETS sector coverage for a given year"""
+
+        covered_sectors = []
+
+        # ETS1 sectors
+        if year >= self.ets1_policy['start_year']:
+            covered_sectors.extend(self.ets1_policy['covered_sectors'])
+
+        # ETS2 sectors
+        if year >= self.ets2_policy['start_year']:
+            covered_sectors.extend(self.ets2_policy['covered_sectors'])
+
+        return list(set(covered_sectors))
+
+    def get_free_allocation_rate(self, year, policy='ETS1'):
+        """Get free allocation rate for given year and policy"""
+
+        if policy == 'ETS1':
+            if year < self.ets1_policy['start_year']:
+                return 1.0
+
+            years_elapsed = year - self.ets1_policy['start_year']
+            initial_rate = self.ets1_policy['free_allocation_rate']
+            decline_rate = self.ets1_policy['free_allocation_decline']
+
+            rate = initial_rate - decline_rate * years_elapsed
+            return max(0.1, rate)  # Minimum 10%
+
+        elif policy == 'ETS2':
+            if year < self.ets2_policy['start_year']:
+                return 1.0
+
+            years_elapsed = year - self.ets2_policy['start_year']
+            initial_rate = self.ets2_policy['free_allocation_rate']
+            decline_rate = self.ets2_policy['free_allocation_decline']
+
+            rate = initial_rate - decline_rate * years_elapsed
+            return max(0.05, rate)  # Minimum 5%
+
+        return 1.0
+
+    def initialize_parameters(self):
+        """Initialize default model parameters"""
+
+        # Macroeconomic parameters
+        self.macro_params = {
+            # 0.1% annual population decline (Italy trend)
+            'population_growth_rate': 0.001,
+            'labor_force_growth_rate': -0.002,    # -0.2% annual labor force decline
+            'productivity_growth_rate': 0.008,     # 0.8% annual productivity growth
+            'depreciation_rate': 0.05,             # 5% capital depreciation
+            'discount_rate': 0.03,                 # 3% social discount rate
+        }
+
+        # Energy parameters
+        self.energy_params = {
+            'autonomous_energy_efficiency': 0.01,  # 1% annual AEEI
+            'electricity_renewable_share': 0.38,   # 38% renewables in 2021
+            'renewable_growth_rate': 0.05,         # 5% annual renewable growth
+        }
+
+        # Trade parameters
+        self.trade_params = {
+            'armington_elasticity': 2.0,           # Substitution between imports and domestic
+            # Transformation between exports and domestic sales
+            'export_transformation_elasticity': 2.0,
+        }
+
+        # Elasticity parameters (based on literature)
+        self.elasticities = {
+            'production': {
+                'factor_substitution': 0.7,        # Between labor and capital
+                'energy_substitution': 1.2,        # Between energy types
+                'material_substitution': 0.5,      # Between intermediate inputs
+            },
+            'consumption': {
+                'income_elasticity': 0.8,          # Income elasticity of demand
+                'price_elasticity': -0.5,          # Own-price elasticity
+                'cross_price_elasticity': 0.2,     # Cross-price elasticity
+            },
+            'trade': {
+                'import_substitution': 2.0,        # Armington elasticity
+                'export_transformation': 2.0,      # CET elasticity
+            }
+        }
+
+    def create_scenario_definitions(self):
+        """Define the three policy scenarios"""
+
+        scenarios = {
+            'BAU': {
+                'name': 'Business as Usual',
+                'description': 'No additional climate policies beyond existing',
+                'carbon_price_ets1': False,
+                'carbon_price_ets2': False,
+                'additional_policies': False,
+                'renewable_targets': False,
+            },
+
+            'ETS1': {
+                'name': 'ETS Phase 1',
+                'description': f'ETS for {", ".join(self.ets1_policy["covered_sectors"])} starting 2021',
+                'carbon_price_ets1': True,
+                'carbon_price_ets2': False,
+                'additional_policies': False,
+                'renewable_targets': True,
+                'covered_sectors': self.ets1_policy['covered_sectors']
+            },
+
+            'ETS2': {
+                'name': 'ETS Phase 1 + Phase 2',
+                'description': f'Extended ETS coverage including {", ".join(self.ets2_policy["covered_sectors"])} from 2027',
+                'carbon_price_ets1': True,
+                'carbon_price_ets2': True,
+                'additional_policies': True,
+                'renewable_targets': True,
+                'covered_sectors': self.all_ets_sectors
+            }
+        }
+
+        return scenarios
+
+    def get_scenario_carbon_price(self, scenario_name, year):
+        """Get carbon price for a specific scenario and year"""
+
+        if scenario_name == 'BAU':
+            return 0.0
+
+        elif scenario_name == 'ETS1':
+            return self.get_carbon_price(year, 'ETS1')
+
+        elif scenario_name == 'ETS2':
+            # Both ETS1 and ETS2 prices apply to different sectors
+            ets1_price = self.get_carbon_price(year, 'ETS1')
+            ets2_price = self.get_carbon_price(year, 'ETS2')
+
+            # Return average weighted by sectoral coverage (simplified)
+            if year >= self.ets2_policy['start_year']:
+                return (ets1_price + ets2_price) / 2
+            else:
+                return ets1_price
+
+        return 0.0
+
+    def validate_model_structure(self):
+        """Validate model structure consistency"""
+
+        validation_results = []
+
+        # Check sector coverage
+        if len(self.sectors) != 11:
+            validation_results.append(
+                f"Expected 11 sectors, found {len(self.sectors)}")
+
+        # Check regional coverage
+        if len(self.households) != 5:
+            validation_results.append(
+                f"Expected 5 household regions, found {len(self.households)}")
+
+        # Check population shares sum to 1
+        pop_sum = sum(self.regional_population_shares.values())
+        if abs(pop_sum - 1.0) > 0.001:
+            validation_results.append(
+                f"Population shares sum to {pop_sum}, should be 1.0")
+
+        # Check ETS coverage
+        total_ets_sectors = len(
+            set(self.ets1_policy['covered_sectors'] + self.ets2_policy['covered_sectors']))
+        if total_ets_sectors == 0:
+            validation_results.append("No sectors covered by ETS policies")
+
+        return validation_results
+
+
+# Create global instance
+model_definitions = ModelDefinitions()
+model_definitions.initialize_parameters()
+
+# Validate structure
+validation_errors = model_definitions.validate_model_structure()
+if validation_errors:
+    print("Model structure validation warnings:")
+    for error in validation_errors:
+        print(f"  - {error}")
+else:
+    print("Model structure validation passed")
+
+# Print summary
+print(f"\nItalian CGE Model Definitions Summary:")
+print(
+    f"Time horizon: {model_definitions.base_year}-{model_definitions.final_year}")
+print(f"Base year GDP target: €{model_definitions.base_year_gdp} billion")
+print(
+    f"Base year population: {model_definitions.base_year_population} million")
+print(f"Production sectors: {len(model_definitions.sectors)}")
+print(f"Energy sectors: {model_definitions.energy_sectors}")
+print(f"Transport sectors: {model_definitions.transport_sectors}")
+print(f"Household regions: {model_definitions.households}")
+print(f"ETS1 coverage: {model_definitions.ets1_policy['covered_sectors']}")
+print(f"ETS2 coverage: {model_definitions.ets2_policy['covered_sectors']}")
