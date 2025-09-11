@@ -5,6 +5,7 @@ A Computable General Equilibrium (CGE) model for Italy with dynamic simulation c
 ## Overview
 
 This project implements a comprehensive CGE model for the Italian economy, featuring:
+
 - Multi-sector economic modeling
 - Dynamic simulation from 2021-2050
 - Environmental policy scenarios (ETS implementation)
@@ -50,12 +51,14 @@ italian_cge_model/
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/italian_cge_model.git
 cd italian_cge_model
 ```
 
 2. Create and activate virtual environment:
+
 ```bash
 python -m venv italian_cge_env
 # On Windows:
@@ -63,6 +66,7 @@ italian_cge_env\Scripts\activate
 ```
 
 3. Install dependencies:
+
 ```bash
 pip install pyomo pandas numpy openpyxl plotly dash
 ```
@@ -70,18 +74,21 @@ pip install pyomo pandas numpy openpyxl plotly dash
 ## Usage
 
 ### Running the Base Model
+
 ```bash
 cd src
 python main_model.py
 ```
 
 ### Dynamic Simulation
+
 ```bash
 cd src
 python dynamic_simulation_2021_2050.py
 ```
 
 ### Policy Scenario Analysis
+
 ```bash
 cd scenarios
 python BAU_scenario.py
@@ -91,6 +98,7 @@ python ETS1_scenario.py
 ## Model Components
 
 ### Core Blocks
+
 - **Production Block**: Multi-sector production with CES/Cobb-Douglas functions
 - **Income-Expenditure Block**: Household and government behavior
 - **Trade Block**: Import/export with Armington specification
@@ -98,6 +106,7 @@ python ETS1_scenario.py
 - **Market Clearing**: Supply-demand equilibrium conditions
 
 ### Scenarios
+
 - **BAU**: Business as Usual projection
 - **ETS1**: EU Emissions Trading System implementation
 - **ETS2**: Enhanced ETS with additional sectors
@@ -105,10 +114,9 @@ python ETS1_scenario.py
 ## Results
 
 The model generates comprehensive outputs including:
+
 - GDP evolution by scenario
 - Sectoral energy demand (MW)
 - CO2 emissions trajectories (MtCo2)
 - Regional economic indicators
 - Policy impact assessments
-
-
