@@ -11,22 +11,22 @@ from datetime import datetime
 
 def main():
     print("=" * 80)
-    print("🇮🇹 ITALIAN CGE MODEL - CALIBRATION & SIMULATION SUMMARY")
+    print("ITALIAN CGE MODEL - CALIBRATION & SIMULATION SUMMARY")
     print("=" * 80)
     print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     print("\n" + "=" * 60)
-    print("📊 MODEL CALIBRATION STATUS")
+    print("MODEL CALIBRATION STATUS")
     print("=" * 60)
 
-    print("\n✅ BASE YEAR CALIBRATION (2021):")
+    print("\nBASE YEAR CALIBRATION (2021):")
     print("   • Nominal GDP: €1,782.0 billion (ISTAT official data)")
     print("   • Population: 59.13 million inhabitants")
     print("   • GDP per Capita: €30,137")
     print("   • Calibration Scale Factor: 1.0057 (minimal adjustment)")
-    print("   • Status: ✅ SUCCESSFULLY CALIBRATED")
+    print("   • Status: SUCCESSFULLY CALIBRATED")
 
-    print("\n🏗️ MODEL STRUCTURE:")
+    print("\nMODEL STRUCTURE:")
     print("   • Production Sectors: 11")
     print("   • Energy Sectors: 3 (Electricity, Gas, Other Energy)")
     print("   • Transport Sectors: 5 (Road, Rail, Air, Water, Other)")
@@ -34,7 +34,7 @@ def main():
     print("   • Total Variables: 416 per scenario")
     print("   • Constraints: 33 equilibrium conditions")
 
-    print("\n🌍 REGIONAL DISTRIBUTION:")
+    print("\nREGIONAL DISTRIBUTION:")
     regions = {
         'Northwest': '26.9% (15.9M people)',
         'Northeast': '19.1% (11.3M people)',
@@ -46,18 +46,18 @@ def main():
         print(f"   • {region}: {data}")
 
     print("\n" + "=" * 60)
-    print("🚀 SIMULATION EXECUTION STATUS")
+    print("SIMULATION EXECUTION STATUS")
     print("=" * 60)
 
-    print("\n✅ SCENARIOS COMPLETED:")
+    print("\nSCENARIOS COMPLETED:")
     print("   • BAU (Business as Usual): 30 years (2021-2050)")
     print("   • ETS1 (Industrial Carbon Pricing): 30 years (2021-2050)")
     print("   • ETS2 (Extended ETS): 24 years (2027-2050)")
     print("   • Total Years Simulated: 84 years")
     print("   • Average Solve Time: <1 second per year")
-    print("   • Solver Status: ✅ OPTIMAL for all years")
+    print("   • Solver Status: OPTIMAL for all years")
 
-    print("\n📈 KEY ECONOMIC RESULTS:")
+    print("\nKEY ECONOMIC RESULTS:")
     print("   GDP Evolution (BAU scenario):")
     print("   • 2021: €1,782 billion (base year)")
     print("   • 2030: €2,076 billion (+16.5%)")
@@ -65,7 +65,7 @@ def main():
     print("   • 2050: €2,919 billion (+63.8%)")
     print("   • Average Annual Growth: 1.7%")
 
-    print("\n⚡ ENERGY TRANSITION RESULTS:")
+    print("\nENERGY TRANSITION RESULTS:")
     print("   Electricity Demand:")
     print("   • 2021: 290 TWh → 2050: 350 TWh (+20.7%)")
     print("   Natural Gas Demand:")
@@ -73,13 +73,13 @@ def main():
     print("   Renewable Share:")
     print("   • 2021: 41.3% → 2050: >70% (projected)")
 
-    print("\n🌱 ENVIRONMENTAL IMPACT:")
+    print("\nENVIRONMENTAL IMPACT:")
     print("   CO2 Emissions Evolution:")
     print("   • BAU: 445 Mt (2021) → 194 Mt (2050)")
     print("   • ETS1: Additional 40.8% reduction vs BAU by 2050")
     print("   • ETS2: Additional 41.9% reduction vs BAU by 2050")
 
-    print("\n💰 CARBON PRICING EFFECTS:")
+    print("\nCARBON PRICING EFFECTS:")
     print("   ETS1 (Industrial sectors):")
     print("   • 2021: €100/tCO2 → 2050: €300/tCO2")
     print("   ETS2 (Buildings & Transport):")
@@ -87,37 +87,37 @@ def main():
     print("   • Carbon Revenue (2050): €173 million")
 
     print("\n" + "=" * 60)
-    print("📁 GENERATED OUTPUT FILES")
+    print("GENERATED OUTPUT FILES")
     print("=" * 60)
 
-    print("\n✅ CALIBRATION OUTPUTS:")
+    print("\nCALIBRATION OUTPUTS:")
     print("   • model_calibration_results.xlsx")
     print("   • calibration_verification reports")
     print("   • SAM balance validation")
 
-    print("\n✅ SCENARIO RESULTS:")
+    print("\nSCENARIO RESULTS:")
     print("   • BAU/BAU_results_summary.xlsx")
     print("   • ETS1/ETS1_results_summary.xlsx")
     print("   • ETS2/ETS2_results_summary.xlsx")
     print("   • italian_cge_results/scenario_comparison/")
 
-    print("\n✅ DYNAMIC SIMULATION:")
+    print("\nDYNAMIC SIMULATION:")
     print("   • Italian_CGE_Dynamic_Results_2021_2050_Complete.xlsx")
     print("   • Regional GDP, sectoral output, energy demand")
     print("   • CO2 emissions, energy prices, employment")
 
     print("\n" + "=" * 60)
-    print("🎯 MODEL VALIDATION SUMMARY")
+    print("MODEL VALIDATION SUMMARY")
     print("=" * 60)
 
-    print("\n✅ CALIBRATION QUALITY:")
-    print("   • GDP Target Match: ✅ PERFECT (±0.00%)")
-    print("   • Population Match: ✅ EXACT")
-    print("   • Sectoral Structure: ✅ VALIDATED")
-    print("   • Regional Distribution: ✅ CONSISTENT")
-    print("   • Energy Data: ✅ ALIGNED WITH IEA/EUROSTAT")
+    print("\nCALIBRATION QUALITY:")
+    print("   • GDP Target Match: PERFECT (±0.00%)")
+    print("   • Population Match: EXACT")
+    print("   • Sectoral Structure: VALIDATED")
+    print("   • Regional Distribution: CONSISTENT")
+    print("   • Energy Data: ALIGNED WITH IEA/EUROSTAT")
 
-    print("\n✅ SIMULATION ROBUSTNESS:")
+    print("\nSIMULATION ROBUSTNESS:")
     print("   • All years converged to optimal solution")
     print("   • Economic equilibrium maintained")
     print("   • Realistic growth trajectories")
@@ -125,16 +125,16 @@ def main():
     print("   • Carbon pricing effects within expected ranges")
 
     print("\n" + "=" * 60)
-    print("🏆 FINAL STATUS")
+    print("FINAL STATUS")
     print("=" * 60)
 
-    print("\n🎉 MODEL STATUS: FULLY OPERATIONAL")
-    print("\n✅ Calibration: SUCCESSFULLY COMPLETED")
-    print("✅ Simulation: SUCCESSFULLY COMPLETED")
-    print("✅ Results: COMPREHENSIVELY GENERATED")
-    print("✅ Validation: ALL CHECKS PASSED")
+    print("\nMODEL STATUS: FULLY OPERATIONAL")
+    print("\nCalibration: SUCCESSFULLY COMPLETED")
+    print("Simulation: SUCCESSFULLY COMPLETED")
+    print("Results: COMPREHENSIVELY GENERATED")
+    print("Validation: ALL CHECKS PASSED")
 
-    print(f"\n📋 Ready for:")
+    print(f"\nReady for:")
     print("   • Policy scenario analysis")
     print("   • Economic impact assessment")
     print("   • Energy transition planning")
@@ -142,7 +142,7 @@ def main():
     print("   • Regional development analysis")
 
     print("\n" + "=" * 80)
-    print("🇮🇹 ITALIAN CGE MODEL CALIBRATION & SIMULATION COMPLETE!")
+    print("ITALIAN CGE MODEL CALIBRATION & SIMULATION COMPLETE!")
     print("=" * 80)
 
 
