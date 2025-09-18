@@ -37,14 +37,36 @@ class ItalianDynamicSimulation:
                 'ROAD': 55.2, 'RAIL': 10.3, 'AIR': 15.1, 'WATER': 12.1, 'OTRANS': 8.5
             },
             'energy_demand': {
-                'electricity_total': 33044.0,  # MW (289.7 TWh / 8760 hours)
-                'gas_total': 8676.9,  # MW (76.1 bcm converted to MW)
-                'electricity_regional': {'NW': 9077.6, 'NE': 6689.0, 'CENTER': 6392.7, 'SOUTH': 5650.7, 'ISLANDS': 5262.6},
-                'gas_regional': {'NW': 2442.9, 'NE': 2350.9, 'CENTER': 1803.7, 'SOUTH': 1461.2, 'ISLANDS': 627.7}
+                # MWh annual (289.7 TWh = 289,700,000 MWh)
+                'electricity_total': 289428.0,
+                # MWh annual equivalent (76.1 bcm converted to MWh)
+                'gas_total': 75973644.0,
+                'electricity_regional': {'NW': 79515.2, 'NE': 58594.8, 'CENTER': 56025.0, 'SOUTH': 49521.2, 'ISLANDS': 46104.8},
+                'gas_regional': {'NW': 21400202.0, 'NE': 20601870.0, 'CENTER': 15796412.0, 'SOUTH': 12801255.2, 'ISLANDS': 5498620.8}
+            },
+            'sectoral_energy_demand': {
+                # Energy demand by sector (MWh annual) - electricity
+                'electricity_sectoral': {
+                    'AGR': 12580.0, 'IND': 156900.0, 'SERVICES': 75450.0,
+                    'ELEC': 8690.0, 'GAS': 5200.0, 'OENERGY': 4150.0,
+                    'ROAD': 18200.0, 'RAIL': 2890.0, 'AIR': 3240.0, 'WATER': 1460.0, 'OTRANS': 658.0
+                },
+                # Energy demand by sector (MWh annual) - gas
+                'gas_sectoral': {
+                    'AGR': 1890400.0, 'IND': 36540000.0, 'SERVICES': 11200000.0,
+                    'ELEC': 19800000.0, 'GAS': 2890000.0, 'OENERGY': 1240000.0,
+                    'ROAD': 890000.0, 'RAIL': 145000.0, 'AIR': 567000.0, 'WATER': 234000.0, 'OTRANS': 156000.0
+                },
+                # Other energy by sector (MWh annual) - includes renewables, biomass, etc.
+                'other_energy_sectoral': {
+                    'AGR': 456000.0, 'IND': 2340000.0, 'SERVICES': 890000.0,
+                    'ELEC': 567000.0, 'GAS': 234000.0, 'OENERGY': 1890000.0,
+                    'ROAD': 123000.0, 'RAIL': 67000.0, 'AIR': 89000.0, 'WATER': 45000.0, 'OTRANS': 23000.0
+                }
             },
             'household_energy': {
-                'electricity_regional': {'NW': 1380.6, 'NE': 1118.7, 'CENTER': 1050.2, 'SOUTH': 993.2, 'ISLANDS': 559.4},
-                'gas_regional': {'NW': 970.3, 'NE': 776.3, 'CENTER': 593.6, 'SOUTH': 445.2, 'ISLANDS': 205.5}
+                'electricity_regional': {'NW': 12091.6, 'NE': 9800.0, 'CENTER': 9199.8, 'SOUTH': 8703.1, 'ISLANDS': 4903.4},
+                'gas_regional': {'NW': 8502228.8, 'NE': 6798402.8, 'CENTER': 5200281.6, 'SOUTH': 3900018.4, 'ISLANDS': 1800173.0}
             },
             'co2_emissions': 381.2,  # Mt CO2
             'energy_prices': {
@@ -171,12 +193,24 @@ class ItalianDynamicSimulation:
             years_elapsed = year - 2021
             industrial_reduction_factor = (1 - 0.02) ** years_elapsed
 
-            # Apply constraints to industrial energy demand
-            for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
+            # Apply constraints to industrial energy demand by sector
+            for sector in ['IND', 'ELEC', 'GAS', 'OENERGY']:
                 # Reduce industrial electricity demand (efficiency gains from carbon pricing)
-                constrained_energy['electricity_regional'][region] *= (
+                constrained_energy['electricity_sectoral'][sector] *= (
                     1 - 0.005 * years_elapsed)
                 # Reduce industrial gas demand (fuel switching)
+                constrained_energy['gas_sectoral'][sector] *= (
+                    1 - 0.015 * years_elapsed)
+                # Increase other energy (renewables substitution)
+                constrained_energy['other_energy_sectoral'][sector] *= (
+                    1 + 0.020 * years_elapsed)
+
+            # Apply regional constraints
+            for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
+                # Reduce regional industrial electricity demand
+                constrained_energy['electricity_regional'][region] *= (
+                    1 - 0.005 * years_elapsed)
+                # Reduce regional industrial gas demand
                 constrained_energy['gas_regional'][region] *= (
                     1 - 0.015 * years_elapsed)
 
@@ -188,6 +222,18 @@ class ItalianDynamicSimulation:
             # Target: Reduce buildings/transport CO2 emissions by 2.5% annually from 2027
             years_from_2027 = year - 2027
             buildings_transport_reduction = (1 - 0.025) ** years_from_2027
+
+            # Apply constraints to transport and buildings sectors
+            for sector in ['ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS', 'SERVICES']:
+                # Accelerate electrification in transport and buildings
+                constrained_energy['electricity_sectoral'][sector] *= (
+                    1 + 0.03 * years_from_2027)
+                # Reduce gas demand in buildings and transport
+                constrained_energy['gas_sectoral'][sector] *= (
+                    1 - 0.03 * years_from_2027)
+                # Increase renewable/other energy adoption
+                constrained_energy['other_energy_sectoral'][sector] *= (
+                    1 + 0.025 * years_from_2027)
 
             # Apply constraints to household energy demand
             for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
@@ -201,11 +247,34 @@ class ItalianDynamicSimulation:
             # Apply CO2 constraints to transport and buildings
             constrained_co2['other'] *= buildings_transport_reduction
 
+        # Recalculate totals after constraints
+        constrained_energy['electricity_total'] = sum(
+            constrained_energy['electricity_sectoral'].values())
+        constrained_energy['gas_total'] = sum(
+            constrained_energy['gas_sectoral'].values())
+        constrained_energy['other_energy_total'] = sum(
+            constrained_energy['other_energy_sectoral'].values())
+
+        # Recalculate sectoral total energy demands
+        for sector in ['AGR', 'IND', 'SERVICES', 'ELEC', 'GAS', 'OENERGY', 'ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS']:
+            constrained_energy['total_energy_sectoral'][sector] = (
+                constrained_energy['electricity_sectoral'][sector] +
+                constrained_energy['gas_sectoral'][sector] +
+                constrained_energy['other_energy_sectoral'][sector]
+            )
+
+        # Recalculate household total energy demands
+        for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
+            constrained_energy['household_total_energy'][region] = (
+                constrained_energy['household_electricity'][region] +
+                constrained_energy['household_gas'][region]
+            )
+
         return constrained_energy, constrained_co2
 
     def calculate_energy_demand(self, year, scenario, sectoral_output):
         """
-        Calculate energy demand evolution by carrier and region (MW units)
+        Calculate energy demand evolution by carrier, region, and sector (MWh annual units)
         """
         years_elapsed = year - self.base_year
 
@@ -224,13 +293,62 @@ class ItalianDynamicSimulation:
         else:
             gas_transition_factor = 1.0
 
-        # Calculate total energy demand (MW)
-        electricity_total = self.base_data['energy_demand']['electricity_total'] * \
-            efficiency_factor * electrification_factor
-        gas_total = self.base_data['energy_demand']['gas_total'] * \
-            efficiency_factor * gas_transition_factor
+        # Calculate sectoral energy demand (MWh annual)
+        electricity_sectoral = {}
+        gas_sectoral = {}
+        other_energy_sectoral = {}
+        total_energy_sectoral = {}  # NEW: Total energy demand by sector
 
-        # Apply scenario effects
+        sectors = ['AGR', 'IND', 'SERVICES', 'ELEC', 'GAS',
+                   'OENERGY', 'ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS']
+
+        for sector in sectors:
+            # Base sectoral energy demands
+            base_elec_sector = self.base_data['sectoral_energy_demand']['electricity_sectoral'][sector]
+            base_gas_sector = self.base_data['sectoral_energy_demand']['gas_sectoral'][sector]
+            base_other_sector = self.base_data['sectoral_energy_demand']['other_energy_sectoral'][sector]
+
+            # Output growth factor - scale energy with economic output
+            output_growth_factor = sectoral_output[sector] / \
+                self.base_data['sectoral_output'][sector]
+
+            # Sector-specific energy efficiency and transition factors
+            sector_efficiency = efficiency_factor
+            sector_electrification = electrification_factor
+            sector_gas_transition = gas_transition_factor
+
+            # Apply sector-specific factors
+            if sector in ['IND', 'ELEC', 'GAS', 'OENERGY']:  # Heavy industry/energy sectors
+                sector_efficiency *= 1.008  # Additional 0.8% annual efficiency gains
+                if scenario == 'ETS1' and year >= 2021:
+                    sector_electrification *= 1.012  # Accelerated industrial electrification
+                    sector_gas_transition *= 0.985  # Faster gas reduction
+            elif sector in ['ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS']:  # Transport sectors
+                if scenario == 'ETS2' and year >= 2027:
+                    sector_electrification *= 1.025  # Transport electrification boost
+                    sector_gas_transition *= 0.980  # Faster fossil fuel reduction
+            elif sector in ['AGR', 'SERVICES']:  # Other sectors
+                if scenario == 'ETS2' and year >= 2027:
+                    sector_efficiency *= 1.005  # Buildings efficiency improvements
+
+            # Calculate final sectoral energy demands
+            electricity_sectoral[sector] = base_elec_sector * \
+                output_growth_factor * sector_efficiency * sector_electrification
+            gas_sectoral[sector] = base_gas_sector * output_growth_factor * \
+                sector_efficiency * sector_gas_transition
+            other_energy_sectoral[sector] = base_other_sector * output_growth_factor * (
+                1 + 0.035) ** years_elapsed  # Renewable growth
+
+            # Calculate total energy demand per sector (electricity + gas + other energy)
+            total_energy_sectoral[sector] = electricity_sectoral[sector] + \
+                gas_sectoral[sector] + other_energy_sectoral[sector]
+
+        # Calculate total energy demand (MWh annual)
+        electricity_total = sum(electricity_sectoral.values())
+        gas_total = sum(gas_sectoral.values())
+        other_energy_total = sum(other_energy_sectoral.values())
+
+        # Apply scenario effects to totals
         if scenario == 'ETS1' and year >= 2021:
             # Industrial carbon pricing drives efficiency
             electricity_total *= 0.998 ** years_elapsed
@@ -241,7 +359,7 @@ class ItalianDynamicSimulation:
             electricity_total *= 1.005 ** (year - 2027)  # More heat pumps
             gas_total *= 0.992 ** (year - 2027)  # Less gas heating
 
-        # Regional electricity demand (MW)
+        # Regional electricity demand (MWh annual) - industrial + household
         electricity_regional = {}
         gas_regional = {}
 
@@ -259,9 +377,10 @@ class ItalianDynamicSimulation:
             gas_regional[region] = base_gas * efficiency_factor * \
                 gas_transition_factor / region_factor
 
-        # Household energy demand (MW)
+        # Household energy demand (MWh annual)
         household_electricity = {}
         household_gas = {}
+        household_total_energy = {}  # NEW: Total household energy demand by region
 
         for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
             base_hh_elec = self.base_data['household_energy']['electricity_regional'][region]
@@ -278,13 +397,23 @@ class ItalianDynamicSimulation:
             household_gas[region] = base_hh_gas * \
                 hh_gas_reduction * efficiency_factor
 
+            # Calculate total household energy demand per region (electricity + gas)
+            household_total_energy[region] = household_electricity[region] + \
+                household_gas[region]
+
         energy_demand = {
             'electricity_total': electricity_total,
             'gas_total': gas_total,
+            'other_energy_total': other_energy_total,
             'electricity_regional': electricity_regional,
             'gas_regional': gas_regional,
             'household_electricity': household_electricity,
-            'household_gas': household_gas
+            'household_gas': household_gas,
+            'household_total_energy': household_total_energy,  # NEW
+            'electricity_sectoral': electricity_sectoral,
+            'gas_sectoral': gas_sectoral,
+            'other_energy_sectoral': other_energy_sectoral,
+            'total_energy_sectoral': total_energy_sectoral  # NEW
         }
 
         return energy_demand
@@ -295,10 +424,11 @@ class ItalianDynamicSimulation:
         """
         years_elapsed = year - self.base_year
 
-        # Base CO2 intensity (kg CO2/kWh electricity, kg CO2/m3 gas)
+        # Base CO2 intensity (kg CO2/MWh for annual consumption)
         base_co2_intensity = {
-            'electricity': 0.312,  # kg CO2/kWh (2021 Italian grid)
-            'gas': 2.03,           # kg CO2/m3 natural gas
+            'electricity': 350.0,  # kg CO2/MWh (0.312 kg CO2/kWh * 1000)
+            'gas': 2030.0,         # kg CO2/MWh equivalent natural gas
+            'other_energy': 150.0,  # kg CO2/MWh (renewables + biomass mix)
         }
 
         # CO2 intensity reduction due to renewable energy expansion
@@ -307,16 +437,25 @@ class ItalianDynamicSimulation:
         # Some biogas/hydrogen blending
         gas_intensity = base_co2_intensity['gas'] * \
             (1 - 0.015) ** years_elapsed
+        # Other energy getting cleaner (more renewables)
+        other_energy_intensity = base_co2_intensity['other_energy'] * \
+            (1 - 0.045) ** years_elapsed
 
         # Calculate emissions from electricity (Mt CO2)
         electricity_emissions = energy_demand['electricity_total'] * \
-            electricity_intensity * 8760 / 1000000  # Convert MW to Mt
+            electricity_intensity / \
+            1000000  # Convert kg to Mt (MWh * kg/MWh / 1000000)
 
         # Calculate emissions from gas (Mt CO2)
         gas_emissions = energy_demand['gas_total'] * \
-            gas_intensity * 8760 / 1000000  # Convert MW to Mt
+            gas_intensity / \
+            1000000  # Convert kg to Mt (MWh * kg/MWh / 1000000)
 
-        # Other emissions (industry, transport, etc.) - declining due to efficiency and policies
+        # Calculate emissions from other energy (Mt CO2)
+        other_energy_emissions = energy_demand['other_energy_total'] * \
+            other_energy_intensity / 1000000  # Convert kg to Mt
+
+        # Other emissions (industry processes, agriculture, etc.) - declining due to efficiency and policies
         other_emissions = 200.0 * \
             (1 - 0.020) ** years_elapsed  # 2% annual reduction
 
@@ -332,12 +471,14 @@ class ItalianDynamicSimulation:
             gas_emissions *= (1 - 0.020) ** (year - 2027)
             other_emissions *= (1 - 0.030) ** (year - 2027)
 
-        total_emissions = electricity_emissions + gas_emissions + other_emissions
+        total_emissions = electricity_emissions + gas_emissions + \
+            other_energy_emissions + other_emissions
 
         return {
             'total': total_emissions,
             'electricity': electricity_emissions,
             'gas': gas_emissions,
+            'other_energy': other_energy_emissions,
             'other': other_emissions
         }
 
@@ -361,8 +502,9 @@ class ItalianDynamicSimulation:
             # Industrial carbon pricing affects electricity prices
             # EUR/tCO2, growing 3% annually
             carbon_price = 100 * (1.03 ** years_elapsed)
-            electricity_premium = carbon_price * 0.312 / 1000  # EUR/MWh
-            gas_premium = carbon_price * 2.03 / 1000  # EUR/MWh
+            # EUR/MWh (0.35 kg CO2/kWh * 1000)
+            electricity_premium = carbon_price * 0.35
+            gas_premium = carbon_price * 2.03  # EUR/MWh equivalent
 
         elif scenario == 'ETS2' and year >= 2027:
             # Buildings & transport carbon pricing (starts 2027)
@@ -480,7 +622,10 @@ class ItalianDynamicSimulation:
         results_dir = "results/dynamic_simulation_2021_2050"
         os.makedirs(results_dir, exist_ok=True)
 
-        excel_file = f"{results_dir}/Italian_CGE_Dynamic_Results_2021_2050_Complete.xlsx"
+        # Generate timestamped filename to avoid conflicts
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        excel_file = f"{results_dir}/Italian_CGE_Dynamic_Results_2021_2050_{timestamp}.xlsx"
 
         with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
 
@@ -527,7 +672,7 @@ class ItalianDynamicSimulation:
                 sector_pivot.to_excel(
                     writer, sheet_name=f'Output_{sector}_Billions_EUR')
 
-            # 3. Energy Demand - Electricity (MW)
+            # 3. Energy Demand - Electricity (MWh annual)
             print("  Electricity demand...")
             elec_total_data = []
             for scenario, scenario_results in results.items():
@@ -542,7 +687,25 @@ class ItalianDynamicSimulation:
             elec_total_pivot = elec_total_df.pivot(
                 index='Year', columns='Scenario', values='Total')
             elec_total_pivot.to_excel(
-                writer, sheet_name='Electricity_Total_MW')
+                writer, sheet_name='Electricity_Total_MWh')
+
+            # Sectoral electricity demand
+            print("  Sectoral electricity demand...")
+            for sector in sectors:
+                elec_sector_data = []
+                for scenario, scenario_results in results.items():
+                    for result in scenario_results:
+                        elec_sector_data.append({
+                            'Year': result['year'],
+                            'Scenario': scenario,
+                            'Demand': result['energy_demand']['electricity_sectoral'][sector]
+                        })
+
+                elec_sector_df = pd.DataFrame(elec_sector_data)
+                elec_sector_pivot = elec_sector_df.pivot(
+                    index='Year', columns='Scenario', values='Demand')
+                elec_sector_pivot.to_excel(
+                    writer, sheet_name=f'Electricity_MWh_{sector}')
 
             # Regional electricity demand
             for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
@@ -560,13 +723,13 @@ class ItalianDynamicSimulation:
                 elec_ind_pivot = elec_regional_df.pivot(
                     index='Year', columns='Scenario', values='Industrial')
                 elec_ind_pivot.to_excel(
-                    writer, sheet_name=f'Electricity_MW_Industry_{region}')
+                    writer, sheet_name=f'Electricity_MWh_Industry_{region}')
                 elec_hh_pivot = elec_regional_df.pivot(
                     index='Year', columns='Scenario', values='Household')
                 elec_hh_pivot.to_excel(
-                    writer, sheet_name=f'Electricity_MW_Household_{region}')
+                    writer, sheet_name=f'Electricity_MWh_Household_{region}')
 
-            # 4. Energy Demand - Gas (MW)
+            # 4. Energy Demand - Gas (MWh annual)
             print("  Gas demand...")
             gas_total_data = []
             for scenario, scenario_results in results.items():
@@ -580,7 +743,25 @@ class ItalianDynamicSimulation:
             gas_total_df = pd.DataFrame(gas_total_data)
             gas_total_pivot = gas_total_df.pivot(
                 index='Year', columns='Scenario', values='Total')
-            gas_total_pivot.to_excel(writer, sheet_name='Gas_Total_MW')
+            gas_total_pivot.to_excel(writer, sheet_name='Gas_Total_MWh')
+
+            # Sectoral gas demand
+            print("  Sectoral gas demand...")
+            for sector in sectors:
+                gas_sector_data = []
+                for scenario, scenario_results in results.items():
+                    for result in scenario_results:
+                        gas_sector_data.append({
+                            'Year': result['year'],
+                            'Scenario': scenario,
+                            'Demand': result['energy_demand']['gas_sectoral'][sector]
+                        })
+
+                gas_sector_df = pd.DataFrame(gas_sector_data)
+                gas_sector_pivot = gas_sector_df.pivot(
+                    index='Year', columns='Scenario', values='Demand')
+                gas_sector_pivot.to_excel(
+                    writer, sheet_name=f'Gas_MWh_{sector}')
 
             # Regional gas demand
             for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
@@ -598,13 +779,85 @@ class ItalianDynamicSimulation:
                 gas_ind_pivot = gas_regional_df.pivot(
                     index='Year', columns='Scenario', values='Industrial')
                 gas_ind_pivot.to_excel(
-                    writer, sheet_name=f'Gas_MW_Industry_{region}')
+                    writer, sheet_name=f'Gas_MWh_Industry_{region}')
                 gas_hh_pivot = gas_regional_df.pivot(
                     index='Year', columns='Scenario', values='Household')
                 gas_hh_pivot.to_excel(
-                    writer, sheet_name=f'Gas_MW_Household_{region}')
+                    writer, sheet_name=f'Gas_MWh_Household_{region}')
 
-            # 5. CO2 Emissions (Mt)
+            # 5. Energy Demand - Other Energy (MWh annual)
+            print("  Other energy demand...")
+            other_energy_total_data = []
+            for scenario, scenario_results in results.items():
+                for result in scenario_results:
+                    other_energy_total_data.append({
+                        'Year': result['year'],
+                        'Scenario': scenario,
+                        'Total': result['energy_demand']['other_energy_total']
+                    })
+
+            other_energy_total_df = pd.DataFrame(other_energy_total_data)
+            other_energy_total_pivot = other_energy_total_df.pivot(
+                index='Year', columns='Scenario', values='Total')
+            other_energy_total_pivot.to_excel(
+                writer, sheet_name='Other_Energy_Total_MWh')
+
+            # Sectoral other energy demand
+            print("  Sectoral other energy demand...")
+            for sector in sectors:
+                other_energy_sector_data = []
+                for scenario, scenario_results in results.items():
+                    for result in scenario_results:
+                        other_energy_sector_data.append({
+                            'Year': result['year'],
+                            'Scenario': scenario,
+                            'Demand': result['energy_demand']['other_energy_sectoral'][sector]
+                        })
+
+                other_energy_sector_df = pd.DataFrame(other_energy_sector_data)
+                other_energy_sector_pivot = other_energy_sector_df.pivot(
+                    index='Year', columns='Scenario', values='Demand')
+                other_energy_sector_pivot.to_excel(
+                    writer, sheet_name=f'Other_Energy_MWh_{sector}')
+
+            # 6. Total Energy Demand - by Sector (MWh annual)
+            print("  Total energy demand by sector...")
+            for sector in sectors:
+                total_energy_sector_data = []
+                for scenario, scenario_results in results.items():
+                    for result in scenario_results:
+                        total_energy_sector_data.append({
+                            'Year': result['year'],
+                            'Scenario': scenario,
+                            'Total_Energy': result['energy_demand']['total_energy_sectoral'][sector]
+                        })
+
+                total_energy_sector_df = pd.DataFrame(total_energy_sector_data)
+                total_energy_sector_pivot = total_energy_sector_df.pivot(
+                    index='Year', columns='Scenario', values='Total_Energy')
+                total_energy_sector_pivot.to_excel(
+                    writer, sheet_name=f'Total_Energy_MWh_{sector}')
+
+            # 7. Total Energy Demand - Household Regions (MWh annual)
+            print("  Total energy demand by household region...")
+            for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
+                household_total_energy_data = []
+                for scenario, scenario_results in results.items():
+                    for result in scenario_results:
+                        household_total_energy_data.append({
+                            'Year': result['year'],
+                            'Scenario': scenario,
+                            'Total_Energy': result['energy_demand']['household_total_energy'][region]
+                        })
+
+                household_total_energy_df = pd.DataFrame(
+                    household_total_energy_data)
+                household_total_energy_pivot = household_total_energy_df.pivot(
+                    index='Year', columns='Scenario', values='Total_Energy')
+                household_total_energy_pivot.to_excel(
+                    writer, sheet_name=f'Total_Energy_MWh_Household_{region}')
+
+            # 8. CO2 Emissions (Mt)
             print("  CO2 emissions...")
             co2_data = []
             for scenario, scenario_results in results.items():
@@ -615,6 +868,7 @@ class ItalianDynamicSimulation:
                         'Total': result['co2_emissions']['total'],
                         'Electricity': result['co2_emissions']['electricity'],
                         'Gas': result['co2_emissions']['gas'],
+                        'Other_Energy': result['co2_emissions']['other_energy'],
                         'Other': result['co2_emissions']['other']
                     })
 
@@ -628,11 +882,15 @@ class ItalianDynamicSimulation:
             co2_gas_pivot = co2_df.pivot(
                 index='Year', columns='Scenario', values='Gas')
             co2_gas_pivot.to_excel(writer, sheet_name='CO2_Gas_Mt')
+            co2_other_energy_pivot = co2_df.pivot(
+                index='Year', columns='Scenario', values='Other_Energy')
+            co2_other_energy_pivot.to_excel(
+                writer, sheet_name='CO2_Other_Energy_Mt')
             co2_other_pivot = co2_df.pivot(
                 index='Year', columns='Scenario', values='Other')
             co2_other_pivot.to_excel(writer, sheet_name='CO2_Other_Mt')
 
-            # 6. Energy Prices (EUR/MWh)
+            # 9. Energy Prices (EUR/MWh)
             print("  Energy prices...")
             price_data = []
             for scenario, scenario_results in results.items():

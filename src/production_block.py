@@ -109,14 +109,18 @@ class ProductionBlock:
             doc="Factor demand"
         )
 
-        # Energy demand (physical units)
+        # Energy demand (MWh annual units)
         def energy_bounds(model, j):
             sector_data = self.params['sectors'].get(j, {})
-            base_energy = sector_data.get(
+            # Base energy in economic units converted to MWh annual
+            base_energy_economic = sector_data.get(
                 'gross_output', 1000) * sector_data.get('energy_intensity', 0.1)
-            base_energy = base_energy / self.output_scale
+            # Convert economic units to MWh (using average conversion factor)
+            base_energy_mwh = base_energy_economic * 8760  # Annual hours conversion
+            base_energy = base_energy_mwh / self.output_scale
             # Ensure minimum energy is substantial enough to avoid numerical issues
-            min_energy = max(0.001, base_energy * 0.01)
+            # At least 8.76 MWh (1 kW continuous)
+            min_energy = max(8.76, base_energy * 0.01)
             return (min_energy, base_energy * 10.0)
 
         self.model.EN = pyo.Var(
@@ -124,8 +128,8 @@ class ProductionBlock:
             domain=pyo.NonNegativeReals,
             bounds=energy_bounds,
             initialize=lambda m, j: max(self.params['sectors'].get(j, {}).get('gross_output', 1000) *
-                                        self.params['sectors'].get(j, {}).get('energy_intensity', 0.1) / self.output_scale, 0.001),
-            doc="Energy demand (physical units)"
+                                        self.params['sectors'].get(j, {}).get('energy_intensity', 0.1) * 8760 / self.output_scale, 8.76),
+            doc="Energy demand (MWh annual)"
         )
 
         # Intermediate input demands
@@ -353,17 +357,18 @@ class ProductionBlock:
             doc="Capital-Labor aggregate (linearized)"
         )
 
-        # Energy demand function with AEEI
+        # Energy demand function with AEEI (MWh annual)
         def energy_demand_rule(model, j):
-            """EN = e_j * Z * (1 - AEEI) * (1 + TFP_growth)"""
+            """EN = e_j * Z * (1 - AEEI) * (1 + TFP_growth) * 8760 [MWh annual]"""
             efficiency_factor = (1 - model.aeei[j])
             tfp_factor = (1 + model.tfp_growth[j])
-            return model.EN[j] == model.e_j[j] * model.Z[j] * efficiency_factor * tfp_factor
+            # Convert to annual MWh: energy intensity * output * efficiency * 8760 hours
+            return model.EN[j] == model.e_j[j] * model.Z[j] * efficiency_factor * tfp_factor * 8760
 
         self.model.eq_energy_demand = pyo.Constraint(
             self.sectors,
             rule=energy_demand_rule,
-            doc="Energy demand with efficiency improvements"
+            doc="Energy demand with efficiency improvements (MWh annual)"
         )
 
         # Intermediate input demands (Leontief)
@@ -444,10 +449,11 @@ class ProductionBlock:
                     value_added * 0.8)  # Most of VA is KL
                 self.model.EKL[j].set_value(value_added)
 
-                # Initialize energy
-                energy_demand = (
+                # Initialize energy (convert to MWh annual)
+                energy_demand_economic = (
                     gross_output * sector_data.get('energy_intensity', 0.1))
-                self.model.EN[j].set_value(max(0.001, energy_demand))
+                energy_demand_mwh = energy_demand_economic * 8760  # Convert to annual MWh
+                self.model.EN[j].set_value(max(8.76, energy_demand_mwh))
 
                 # Initialize factors
                 factor_payments = sector_data.get('factor_payments', {})
@@ -463,7 +469,7 @@ class ProductionBlock:
                     self.model.X[i, j].set_value(intermediate_demand)
 
                 print(
-                    f"  {j}: Output={gross_output:.1f}, VA={value_added:.1f}, Energy={energy_demand:.3f}")
+                    f"  {j}: Output={gross_output:.1f}, VA={value_added:.1f}, Energy={energy_demand_mwh:.1f} MWh")
 
             # Initialize prices
             self.model.pz[j].set_value(1.0)

@@ -921,10 +921,10 @@ ENERGY SYSTEM PROJECTIONS
 =========================
 
 Energy Demand Evolution (BAU):
-- Electricity: {elec_2021:.0f} MW (2021) → {elec_2050_bau:.0f} MW (2050)
+- Electricity: {elec_2021:.0f} MWh annual (2021) → {elec_2050_bau:.0f} MWh annual (2050)
 - Growth: {(elec_2050_bau/elec_2021-1)*100:.1f}%
 
-- Gas: {gas_2021:.0f} MW (2021) → {gas_2050_bau:.0f} MW (2050)
+- Gas: {gas_2021:.0f} MWh annual (2021) → {gas_2050_bau:.0f} MWh annual (2050)
 - Change: {(gas_2050_bau/gas_2021-1)*100:.1f}%
 
 Policy Impact on Energy Demand (2050):

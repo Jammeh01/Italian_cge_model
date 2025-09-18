@@ -120,7 +120,7 @@ ENVIRONMENTAL EFFECTIVENESS:
 • Climate Target Alignment: Supports EU 2030 (-55%) and 2050 (net-zero) goals
 
 ENERGY SYSTEM TRANSFORMATION:
-• Electricity Demand: 33,044 MW (2021) → 39,932 MW (2050) under BAU
+• Electricity Demand: 289,428 MWh annual (2021) → 349,714 MWh annual (2050) under BAU
 • Energy Efficiency: Significant improvements under carbon pricing
 • Fuel Switching: Accelerated electrification in ETS scenarios
 • Energy Security: Reduced gas dependence, enhanced system resilience

@@ -45,16 +45,19 @@ class EnergyEnvironmentBlock:
             if hasattr(self.model, var_name):
                 self.model.del_component(var_name)
 
-        # Energy demand by sector and energy type (physical units)
+        # Energy demand by sector and energy type (MWh - annual consumption)
         def energy_demand_bounds(model, es, user):
             if user in self.sectors:
                 sector_data = self.params['sectors'].get(user, {})
-                base_energy = sector_data.get(
+                # Convert from MW to MWh (annual): base_energy_MW * 8760 hours
+                base_energy_mw = sector_data.get(
                     'gross_output', 1000) * sector_data.get('energy_intensity', 0.1)
+                base_energy = base_energy_mw * 8760  # Convert MW to MWh annual
             else:  # Household
                 hh_data = self.params['households'].get(user, {})
-                # 5% of consumption on energy
-                base_energy = hh_data.get('consumption', 40000) * 0.05
+                # 5% of consumption on energy, converted to MWh annual
+                base_energy_mw = hh_data.get('consumption', 40000) * 0.05
+                base_energy = base_energy_mw * 8760  # Convert MW to MWh annual
 
             return (0.001, base_energy * 2.0)  # Small positive lower bound
 
@@ -64,16 +67,17 @@ class EnergyEnvironmentBlock:
             bounds=energy_demand_bounds,
             initialize=lambda m, es, user: energy_demand_bounds(m, es, user)[
                 1] * 0.5,
-            doc="Energy consumption by type and user (physical units)"
+            doc="Energy consumption by type and user (MWh annual)"
         )
 
-        # Total energy consumption by type
+        # Total energy consumption by type (MWh annual)
         self.model.TOT_Energy = pyo.Var(
             self.energy_sectors,
             domain=pyo.NonNegativeReals,
-            bounds=(1.0, None),
-            initialize=1000.0,
-            doc="Total consumption of each energy type"
+            # Minimum 8760 MWh (equivalent to 1 MW continuous)
+            bounds=(8760.0, None),
+            initialize=8760000.0,   # 8.76 million MWh
+            doc="Total consumption of each energy type (MWh annual)"
         )
 
         # CO2 emissions by user
@@ -187,15 +191,15 @@ class EnergyEnvironmentBlock:
             doc="Energy coefficient (physical/monetary conversion)"
         )
 
-        # CO2 emission factors by energy type
+        # CO2 emission factors by energy type (for MWh annual consumption)
         def get_co2_factor(model, es):
-            # Based on actual Italian emission factors
+            # Based on actual Italian emission factors - converted for MWh units
             co2_factors = {
-                'Electricity': 0.350,  # kg CO2/kWh (including renewables)
-                'Gas': 2.034,          # kg CO2/m³
-                'Other Energy': 2.68   # kg CO2/liter (oil products average)
+                'Electricity': 350.0,   # kg CO2/MWh (0.350 kg CO2/kWh * 1000)
+                'Gas': 2034.0,          # kg CO2/MWh equivalent for natural gas
+                'Other Energy': 2680.0  # kg CO2/MWh equivalent for oil products
             }
-            return co2_factors.get(es, 1.0)
+            return co2_factors.get(es, 1000.0)
 
         self.model.co2_fac = pyo.Param(
             self.energy_sectors,

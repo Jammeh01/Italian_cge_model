@@ -116,7 +116,7 @@ python ETS1_scenario.py
 The model generates comprehensive outputs including:
 
 - GDP evolution by scenario
-- Sectoral energy demand (MW)
+- Sectoral energy demand (MWh annual)
 - CO2 emissions trajectories (MtCo2)
 - Regional economic indicators
 - Policy impact assessments
