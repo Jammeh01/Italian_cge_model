@@ -3,6 +3,10 @@ Definitions and Sets for Italian CGE Model
 Based on actual SAM data with Italian regional disaggregation
 Dynamic recursive model structure following ThreeME approach
 Author: Italian CGE Model (2021-2050)
+
+EU ETS Implementation:
+- ETS1 (EU ETS Phase 4): €53.90/tCO2e starting 2021, Market Stability Reserve (no formal ceiling)
+- ETS2 (Buildings/Transport): €45.0/tCO2e starting 2027, Price Stability Mechanism (€22-€45/tCO2e range)
 """
 
 import pandas as pd
@@ -228,24 +232,27 @@ class ModelDefinitions:
     def define_ets_policies(self):
         """Define ETS policy parameters and coverage"""
 
-        # ETS1 Policy (starts 2021)
+        # ETS1 Policy (starts 2021) - EU ETS Phase 4
         self.ets1_policy = {
             'start_year': 2021,
-            'base_carbon_price': 100.0,  # €100/tCO2 in 2021
+            'base_carbon_price': 53.90,  # €53.90/tCO2e in 2021 (actual EU ETS price)
             'price_growth_rate': 0.05,   # 5% annual growth
-            'price_cap': 300.0,          # Maximum €300/tCO2
+            'price_cap': None,           # No formal price ceiling - relies on Market Stability Reserve (MSR)
+            'has_msr': True,            # Market Stability Reserve mechanism
             # Based on your specification
             'covered_sectors': ['IND', 'GAS', 'OENERGY', 'AIR', 'WATER'],
             'free_allocation_rate': 0.8,  # 80% free allowances initially
             'free_allocation_decline': 0.02,  # 2% annual decline
         }
 
-        # ETS2 Policy (starts 2027)
+        # ETS2 Policy (starts 2027) - EU ETS for buildings and transport
         self.ets2_policy = {
             'start_year': 2027,
-            'base_carbon_price': 45.0,   # €45/tCO2 in 2027
+            'base_carbon_price': 45.0,   # €45.0/tCO2e in 2027 (EU ETS2 starting price)
             'price_growth_rate': 0.07,   # 7% annual growth
-            'price_cap': 250.0,          # Maximum €250/tCO2
+            'price_cap': 45.0,           # Price Stability Mechanism (PSM) ceiling at €45/tCO2e
+            'price_floor': 22.0,         # Price Stability Mechanism (PSM) floor at €22/tCO2e
+            'has_psm': True,            # Price Stability Mechanism
             # Based on your specification
             'covered_sectors': ['ROAD', 'OTRANS', 'SERVICES'],
             'free_allocation_rate': 0.6,  # 60% free allowances initially
@@ -261,31 +268,43 @@ class ModelDefinitions:
             s for s in self.sectors if s not in self.all_ets_sectors]
 
     def get_carbon_price(self, year, policy='ETS1'):
-        """Calculate carbon price for given year and policy"""
+        """Calculate carbon price for given year and policy with EU ETS specifications"""
 
         if policy == 'ETS1':
             if year < self.ets1_policy['start_year']:
                 return 0.0
 
             years_elapsed = year - self.ets1_policy['start_year']
-            base_price = self.ets1_policy['base_carbon_price']
+            base_price = self.ets1_policy['base_carbon_price']  # €53.90/tCO2e
             growth_rate = self.ets1_policy['price_growth_rate']
-            price_cap = self.ets1_policy['price_cap']
 
             price = base_price * (1 + growth_rate) ** years_elapsed
-            return min(price, price_cap)
+            
+            # ETS1 has no formal price cap - Market Stability Reserve manages supply
+            # In practice, we can set a high ceiling for modeling purposes
+            if self.ets1_policy['has_msr']:
+                # MSR mechanism - no hard cap but extreme prices unlikely
+                return min(price, 300.0)  # Practical upper bound for modeling
+            else:
+                return price
 
         elif policy == 'ETS2':
             if year < self.ets2_policy['start_year']:
                 return 0.0
 
             years_elapsed = year - self.ets2_policy['start_year']
-            base_price = self.ets2_policy['base_carbon_price']
+            base_price = self.ets2_policy['base_carbon_price']  # €45.0/tCO2e
             growth_rate = self.ets2_policy['price_growth_rate']
-            price_cap = self.ets2_policy['price_cap']
+            price_cap = self.ets2_policy['price_cap']  # €45.0/tCO2e ceiling
+            price_floor = self.ets2_policy['price_floor']  # €22.0/tCO2e floor
 
             price = base_price * (1 + growth_rate) ** years_elapsed
-            return min(price, price_cap)
+            
+            # ETS2 has Price Stability Mechanism (PSM) with ceiling and floor
+            if self.ets2_policy['has_psm']:
+                return max(price_floor, min(price, price_cap))
+            else:
+                return price
 
         return 0.0
 
@@ -377,7 +396,7 @@ class ModelDefinitions:
         }
 
     def create_scenario_definitions(self):
-        """Define the three policy scenarios"""
+        """Define the three policy scenarios with EU ETS specifications"""
 
         scenarios = {
             'BAU': {
@@ -390,23 +409,26 @@ class ModelDefinitions:
             },
 
             'ETS1': {
-                'name': 'ETS Phase 1',
-                'description': f'ETS for {", ".join(self.ets1_policy["covered_sectors"])} starting 2021',
+                'name': 'EU ETS Phase 4',
+                'description': f'EU ETS Phase 4 for {", ".join(self.ets1_policy["covered_sectors"])} starting 2021 (€53.90/tCO2e base price)',
                 'carbon_price_ets1': True,
                 'carbon_price_ets2': False,
                 'additional_policies': False,
                 'renewable_targets': True,
-                'covered_sectors': self.ets1_policy['covered_sectors']
+                'covered_sectors': self.ets1_policy['covered_sectors'],
+                'price_mechanism': 'Market Stability Reserve (MSR)'
             },
 
             'ETS2': {
-                'name': 'ETS Phase 1 + Phase 2',
-                'description': f'Extended ETS coverage including {", ".join(self.ets2_policy["covered_sectors"])} from 2027',
+                'name': 'EU ETS Phase 4 + Buildings/Transport',
+                'description': f'Extended EU ETS coverage including buildings/transport {", ".join(self.ets2_policy["covered_sectors"])} from 2027 (€45.0/tCO2e base price)',
                 'carbon_price_ets1': True,
                 'carbon_price_ets2': True,
                 'additional_policies': True,
                 'renewable_targets': True,
-                'covered_sectors': self.all_ets_sectors
+                'covered_sectors': self.all_ets_sectors,
+                'ets1_mechanism': 'Market Stability Reserve (MSR)',
+                'ets2_mechanism': 'Price Stability Mechanism (PSM)'
             }
         }
 

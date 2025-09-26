@@ -113,19 +113,19 @@ class EnergyEnvironmentBlock:
 
         # ETS-related variables
 
-        # Carbon price by policy (€/tCO2)
+        # Carbon price by policy (€/tCO2e) - Updated for EU ETS specifications
         self.model.carbon_price_ets1 = pyo.Var(
             domain=pyo.NonNegativeReals,
-            bounds=(0.0, 300.0),  # Max €300/tCO2
-            initialize=0.0,
-            doc="ETS1 carbon price (€/tCO2)"
+            bounds=(0.0, 300.0),  # No formal cap - MSR manages supply (practical upper bound)
+            initialize=53.90,     # €53.90/tCO2e starting price in 2021
+            doc="ETS1 carbon price (€/tCO2e) - EU ETS Phase 4"
         )
 
         self.model.carbon_price_ets2 = pyo.Var(
             domain=pyo.NonNegativeReals,
-            bounds=(0.0, 250.0),  # Max €250/tCO2
-            initialize=0.0,
-            doc="ETS2 carbon price (€/tCO2)"
+            bounds=(22.0, 45.0),  # Price Stability Mechanism: floor €22, ceiling €45/tCO2e
+            initialize=45.0,      # €45.0/tCO2e starting price in 2027
+            doc="ETS2 carbon price (€/tCO2e) - EU ETS for buildings and transport"
         )
 
         # Policy cost on sectors (carbon payments)
@@ -455,7 +455,7 @@ class EnergyEnvironmentBlock:
         )
 
     def update_policy_parameters(self, year, scenario_name):
-        """Update ETS policy parameters for given year and scenario"""
+        """Update ETS policy parameters for given year and scenario - EU ETS Implementation"""
 
         self.current_year = year
         self.current_scenario = scenario_name
@@ -466,29 +466,26 @@ class EnergyEnvironmentBlock:
             self.model.carbon_price_ets2.fix(0.0)
 
         elif scenario_name == 'ETS1':
-            # ETS1 active, ETS2 not yet active
-            ets1_price = model_definitions.get_carbon_price(year, 'ETS1')
+            # EU ETS Phase 4 active (starts 2021), ETS2 not yet active (starts 2027)
+            ets1_price = model_definitions.get_carbon_price(year, 'ETS1')  # €53.90/tCO2e in 2021
             self.model.carbon_price_ets1.fix(ets1_price)
             self.model.carbon_price_ets2.fix(0.0)
 
-            # Update free allocation rate
-            ets1_free_rate = model_definitions.get_free_allocation_rate(
-                year, 'ETS1')
+            # Update free allocation rate for ETS1
+            ets1_free_rate = model_definitions.get_free_allocation_rate(year, 'ETS1')
             self.model.free_alloc_ets1.set_value(ets1_free_rate)
 
         elif scenario_name == 'ETS2':
-            # Both ETS1 and ETS2 active
-            ets1_price = model_definitions.get_carbon_price(year, 'ETS1')
-            ets2_price = model_definitions.get_carbon_price(year, 'ETS2')
+            # Both EU ETS Phase 4 (ETS1) and EU ETS for buildings/transport (ETS2) active
+            ets1_price = model_definitions.get_carbon_price(year, 'ETS1')  # No price ceiling (MSR managed)
+            ets2_price = model_definitions.get_carbon_price(year, 'ETS2')  # €45.0/tCO2e ceiling (PSM)
 
             self.model.carbon_price_ets1.fix(ets1_price)
             self.model.carbon_price_ets2.fix(ets2_price)
 
-            # Update free allocation rates
-            ets1_free_rate = model_definitions.get_free_allocation_rate(
-                year, 'ETS1')
-            ets2_free_rate = model_definitions.get_free_allocation_rate(
-                year, 'ETS2')
+            # Update free allocation rates for both systems
+            ets1_free_rate = model_definitions.get_free_allocation_rate(year, 'ETS1')
+            ets2_free_rate = model_definitions.get_free_allocation_rate(year, 'ETS2')
 
             self.model.free_alloc_ets1.set_value(ets1_free_rate)
             self.model.free_alloc_ets2.set_value(ets2_free_rate)
@@ -502,7 +499,7 @@ class EnergyEnvironmentBlock:
             if scenario_name in ['ETS1', 'ETS2']:
                 sector_code = model_definitions.sector_mapping.get(j, j)
                 if sector_code in model_definitions.get_ets_coverage(year):
-                    # Covered sectors improve efficiency faster
+                    # Covered sectors improve efficiency faster due to carbon price signal
                     enhanced_aeei = base_aeei * 1.5  # 50% faster improvement
                 else:
                     enhanced_aeei = base_aeei
@@ -511,17 +508,18 @@ class EnergyEnvironmentBlock:
 
             # Cumulative efficiency improvement
             cumulative_aeei = 1 - (1 - enhanced_aeei) ** years_elapsed
-            self.model.aeei[j].set_value(
-                min(0.5, cumulative_aeei))  # Cap at 50%
+            self.model.aeei[j].set_value(min(0.5, cumulative_aeei))  # Cap at 50%
 
-        print(f"Updated ETS parameters for {scenario_name} in {year}:")
+        print(f"Updated EU ETS parameters for {scenario_name} in {year}:")
         if scenario_name != 'BAU':
-            print(
-                f"  ETS1 price: €{ets1_price:.1f}/tCO2" if 'ets1_price' in locals() else "")
-            print(
-                f"  ETS2 price: €{ets2_price:.1f}/tCO2" if 'ets2_price' in locals() else "")
-            print(
-                f"  ETS1 free allocation: {ets1_free_rate:.1%}" if 'ets1_free_rate' in locals() else "")
+            if 'ets1_price' in locals():
+                print(f"  EU ETS Phase 4 (ETS1) price: €{ets1_price:.2f}/tCO2e")
+            if 'ets2_price' in locals() and year >= 2027:
+                print(f"  EU ETS Buildings/Transport (ETS2) price: €{ets2_price:.2f}/tCO2e")
+            if 'ets1_free_rate' in locals():
+                print(f"  ETS1 free allocation: {ets1_free_rate:.1%}")
+            if 'ets2_free_rate' in locals() and year >= 2027:
+                print(f"  ETS2 free allocation: {ets2_free_rate:.1%}")
 
     def initialize_energy_environment_variables(self):
         """Initialize energy-environment variables"""

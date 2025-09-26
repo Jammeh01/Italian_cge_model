@@ -1043,9 +1043,9 @@ class ItalianCGEModel:
                 carbon_revenue = carbon_pricing.get('total_carbon_revenue', 0)
 
                 if ets1_price > 0:
-                    print(f"  ETS1 Carbon Price: €{ets1_price:.1f}/tCO2")
+                    print(f"  EU ETS Phase 4 (ETS1) Price: €{ets1_price:.2f}/tCO2e")
                 if ets2_price > 0:
-                    print(f"  ETS2 Carbon Price: €{ets2_price:.1f}/tCO2")
+                    print(f"  EU ETS Buildings/Transport (ETS2) Price: €{ets2_price:.2f}/tCO2e")
                 if carbon_revenue > 0:
                     print(f"  Total Carbon Revenue: €{carbon_revenue:,.0f}")
 
@@ -1134,19 +1134,25 @@ class ItalianCGEModel:
 
         # Scenario-specific parameters
         if scenario_name == 'ETS1':
-            report_lines.append("ETS1 SCENARIO PARAMETERS:")
+            report_lines.append("EU ETS PHASE 4 SCENARIO PARAMETERS:")
             report_lines.append(
-                f"  Base carbon price (2021): €{model_definitions.ets1_policy['base_carbon_price']}/tCO2")
+                f"  Base carbon price (2021): €{model_definitions.ets1_policy['base_carbon_price']:.2f}/tCO2e")
             report_lines.append(
                 f"  Price growth rate: {model_definitions.ets1_policy['price_growth_rate']:.1%} per year")
             report_lines.append(
+                f"  Price mechanism: Market Stability Reserve (MSR) - no formal ceiling")
+            report_lines.append(
                 f"  Covered sectors: {', '.join(model_definitions.ets1_policy['covered_sectors'])}")
         elif scenario_name == 'ETS2':
-            report_lines.append("ETS2 SCENARIO PARAMETERS:")
+            report_lines.append("EU ETS PHASE 4 + BUILDINGS/TRANSPORT SCENARIO PARAMETERS:")
             report_lines.append(
-                f"  ETS1 base price (2021): €{model_definitions.ets1_policy['base_carbon_price']}/tCO2")
+                f"  ETS1 base price (2021): €{model_definitions.ets1_policy['base_carbon_price']:.2f}/tCO2e")
             report_lines.append(
-                f"  ETS2 base price (2027): €{model_definitions.ets2_policy['base_carbon_price']}/tCO2")
+                f"  ETS2 base price (2027): €{model_definitions.ets2_policy['base_carbon_price']:.2f}/tCO2e")
+            report_lines.append(
+                f"  ETS1 mechanism: Market Stability Reserve (MSR)")
+            report_lines.append(
+                f"  ETS2 mechanism: Price Stability Mechanism (PSM) - ceiling €{model_definitions.ets2_policy['price_cap']:.0f}/tCO2e")
             report_lines.append(
                 f"  ETS1 sectors: {', '.join(model_definitions.ets1_policy['covered_sectors'])}")
             report_lines.append(
@@ -1197,10 +1203,10 @@ class ItalianCGEModel:
 
                 if final_ets1_price > 0:
                     report_lines.append(
-                        f"  Final ETS1 carbon price: €{final_ets1_price:.1f}/tCO2")
+                        f"  Final EU ETS Phase 4 price: €{final_ets1_price:.2f}/tCO2e")
                 if final_ets2_price > 0:
                     report_lines.append(
-                        f"  Final ETS2 carbon price: €{final_ets2_price:.1f}/tCO2")
+                        f"  Final EU ETS Buildings/Transport price: €{final_ets2_price:.2f}/tCO2e")
                 if total_revenue > 0:
                     report_lines.append(
                         f"  Final year carbon revenue: €{total_revenue:,.0f}")
