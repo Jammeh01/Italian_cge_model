@@ -8,8 +8,9 @@ Your Python environment for the Italian CGE model has been successfully configur
 
 #### Core Requirements (from README)
 - **Python 3.10.11** (meets requirement: Python 3.8+)
-- **Pyomo optimization framework** (version 6.9.4)
-- **IPOPT solver** (via IDAES extensions v3.4.2)
+- **Pyomo optimization framework** (version 6.9.4) - FULLY WORKING ✅
+- **IPOPT solver** (version 3.14.16) - FULLY WORKING ✅
+- **Gurobi solver** - FULLY WORKING ✅ (backup optimizer)
 - **Pandas** (version 2.3.2) - for data processing
 - **NumPy** (version 2.2.6) - for data processing
 - **Plotly** (version 6.3.0) - for visualization
@@ -22,12 +23,20 @@ Your Python environment for the Italian CGE model has been successfully configur
 - **OpenPyXL** (version 3.1.5) - Excel file support
 - **XLwt & XLSXWriter** - Excel writing capabilities
 - **IDAES-PSE** (version 2.8.0) - advanced optimization platform
+- **PySCIPOpt** (version 5.6.0) - SCIP optimization solver
 
+### Solver Configuration - WORKING PERFECTLY!
+
+- **Primary Solver**: IPOPT 3.14.16 (nonlinear optimization)
+  - Location: `C:\Users\BAKARY JAMMEH\OneDrive - Università degli Studi di Milano-Bicocca\Desktop\MODELLING\Italian_cge_model\ipopt_solver\Ipopt-3.14.16-win64-msvs2019-md\bin\ipopt.exe`
+  - Status: ✅ TESTED AND WORKING
+- **Secondary Solver**: Gurobi (commercial linear/quadratic solver)
+  - Status: ✅ TESTED AND WORKING
+  
 ### Environment Details
 
-- **Virtual Environment**: `italian_cge_env`
-- **Location**: `C:\Users\BAKARY JAMMEH\OneDrive - Università degli Studi di Milano-Bicocca\Desktop\MODELLING\Italian_cge_model\italian_cge_env`
-- **IPOPT Location**: `C:\Users\BAKARY JAMMEH\AppData\Local\idaes\bin\ipopt.exe`
+- **Virtual Environment**: NOT USED (using system Python)
+- **Python Location**: `C:\Program Files\Python310\python.exe`
 
 ### How to Use Your Environment
 

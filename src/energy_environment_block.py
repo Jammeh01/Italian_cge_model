@@ -121,11 +121,13 @@ class EnergyEnvironmentBlock:
             doc="ETS1 carbon price (€/tCO2e) - EU ETS Phase 4"
         )
 
+        # ETS2 starts in 2027, so bounds depend on whether it's active
+        # Use flexible bounds that allow 0.0 for years before 2027
         self.model.carbon_price_ets2 = pyo.Var(
             domain=pyo.NonNegativeReals,
-            bounds=(22.0, 45.0),  # Price Stability Mechanism: floor €22, ceiling €45/tCO2e
-            initialize=45.0,      # €45.0/tCO2e starting price in 2027
-            doc="ETS2 carbon price (€/tCO2e) - EU ETS for buildings and transport"
+            bounds=(0.0, 45.0),   # Allow 0.0 before 2027, then Price Stability Mechanism ceiling €45/tCO2e
+            initialize=0.0,       # Start at 0.0, will be set to proper value when ETS2 is active
+            doc="ETS2 carbon price (€/tCO2e) - EU ETS for buildings and transport (starts 2027)"
         )
 
         # Policy cost on sectors (carbon payments)
