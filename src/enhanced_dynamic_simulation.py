@@ -634,6 +634,9 @@ class EnhancedItalianDynamicSimulation:
                 # Carbon policy (using the same calculation as before)
                 carbon_policy = self.calculate_carbon_policy(year, scenario)
                 
+                # CO2 emissions calculation
+                co2_emissions = self.calculate_co2_emissions(year, scenario, energy, sectoral_va, macroeconomy)
+                
                 # Trade (simplified - same proportional scaling)
                 trade = self.calculate_trade(year, scenario, sectoral_va, macroeconomy)
                 
@@ -643,6 +646,7 @@ class EnhancedItalianDynamicSimulation:
                     'households': households,
                     'energy': energy,
                     'carbon_policy': carbon_policy,
+                    'co2_emissions': co2_emissions,
                     'trade': trade,
                     'labor_market': labor_market,
                     'demographics': demographics,
@@ -668,6 +672,7 @@ class EnhancedItalianDynamicSimulation:
         households = self.calculate_household_income_expenditure(year, scenario, macroeconomy)
         energy = self.calculate_energy_demand(year, scenario, macroeconomy, sectoral_va)
         carbon_policy = self.calculate_carbon_policy(year, scenario)
+        co2_emissions = self.calculate_co2_emissions(year, scenario, energy, sectoral_va, macroeconomy)
         trade = self.calculate_trade(year, scenario, sectoral_va, macroeconomy)
         labor_market = self.calculate_labor_market(year, scenario, macroeconomy)
         demographics = self.calculate_demographics(year, scenario)
@@ -679,6 +684,7 @@ class EnhancedItalianDynamicSimulation:
             'households': households,
             'energy': energy,
             'carbon_policy': carbon_policy,
+            'co2_emissions': co2_emissions,
             'trade': trade,
             'labor_market': labor_market,
             'demographics': demographics,
@@ -1171,6 +1177,116 @@ class EnhancedItalianDynamicSimulation:
             'population_growth_rate_national': (total_population / self.base_data['population'] - 1) / max(1, years_elapsed)
         }
 
+    def calculate_co2_emissions(self, year, scenario, energy, sectoral_va, macroeconomy):
+        """
+        Calculate Total CO2 emissions (MtCO2) and CO2 intensity (tCO2/million EUR)
+        """
+        years_elapsed = year - self.base_year
+        
+        # CO2 emission factors (kg CO2/MWh)
+        co2_factors = {
+            'electricity': 350.0,      # kg CO2/MWh (Italian grid average)
+            'gas': 202.0,             # kg CO2/MWh for natural gas
+            'other_energy': 267.0     # kg CO2/MWh for oil products
+        }
+        
+        # Calculate sectoral CO2 emissions
+        co2_emissions_sectoral = {}
+        total_sectoral_emissions = 0
+        
+        for sector in ['Agriculture', 'Industry', 'Energy', 'Transport', 'Services']:
+            sector_emissions = 0
+            
+            # Calculate emissions from each energy carrier
+            for carrier in ['electricity', 'gas', 'other_energy']:
+                energy_demand_mwh = energy['sectoral_energy'][carrier][sector]
+                emissions_kg = energy_demand_mwh * co2_factors[carrier]
+                emissions_mt = emissions_kg / 1e9  # Convert kg to MtCO2
+                sector_emissions += emissions_mt
+            
+            # Apply scenario-specific emission reduction factors
+            scenario_factor = 1.0
+            
+            if scenario == 'ETS1' and year >= 2021:
+                # Industrial carbon pricing reduces emissions
+                if sector in ['Industry', 'Energy']:
+                    # Progressive reduction based on carbon price
+                    price_years = year - 2021
+                    reduction_factor = 1 - (0.015 * price_years)  # 1.5% annual reduction
+                    scenario_factor = max(0.7, reduction_factor)  # Cap at 30% reduction
+                    
+            elif scenario == 'ETS2' and year >= 2027:
+                # Comprehensive carbon pricing affects all sectors
+                price_years = year - 2027
+                if sector in ['Industry', 'Energy']:
+                    # Continued ETS1 impact plus additional reduction
+                    ets1_years = year - 2021
+                    ets1_reduction = 1 - (0.015 * ets1_years)
+                    ets2_additional = 1 - (0.008 * price_years)  # Additional 0.8% annual
+                    scenario_factor = max(0.5, ets1_reduction * ets2_additional)
+                elif sector in ['Transport', 'Services']:
+                    # New ETS2 sectors
+                    reduction_factor = 1 - (0.012 * price_years)  # 1.2% annual reduction
+                    scenario_factor = max(0.6, reduction_factor)
+                elif sector == 'Agriculture':
+                    # Indirect benefits from green transition
+                    reduction_factor = 1 - (0.005 * price_years)  # 0.5% annual reduction
+                    scenario_factor = max(0.85, reduction_factor)
+            
+            # Apply energy efficiency improvements (additional to energy demand reductions)
+            efficiency_factor = (1 - 0.01) ** years_elapsed  # 1% annual CO2 intensity improvement
+            
+            co2_emissions_sectoral[sector] = sector_emissions * scenario_factor * efficiency_factor
+            total_sectoral_emissions += co2_emissions_sectoral[sector]
+        
+        # Calculate household CO2 emissions by region
+        co2_emissions_households = {}
+        total_household_emissions = 0
+        
+        for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
+            region_emissions = 0
+            
+            # Calculate emissions from household energy consumption
+            for carrier in ['electricity', 'gas', 'other_energy']:
+                energy_demand_mwh = energy['household_energy'][carrier][region]
+                emissions_kg = energy_demand_mwh * co2_factors[carrier]
+                emissions_mt = emissions_kg / 1e9  # Convert kg to MtCO2
+                region_emissions += emissions_mt
+            
+            # Apply scenario-specific household emission reductions
+            household_scenario_factor = 1.0
+            
+            if scenario == 'ETS1' and year >= 2021:
+                # Limited household impact from industrial carbon pricing
+                household_scenario_factor = 0.998  # 0.2% annual reduction from spillovers
+                
+            elif scenario == 'ETS2' and year >= 2027:
+                # Direct impact on household emissions
+                price_years = year - 2027
+                reduction_factor = 1 - (0.020 * price_years)  # 2% annual reduction
+                household_scenario_factor = max(0.6, reduction_factor)  # Cap at 40% reduction
+            
+            # Apply household energy efficiency improvements
+            household_efficiency = (1 - 0.015) ** years_elapsed  # 1.5% annual improvement
+            
+            co2_emissions_households[region] = region_emissions * household_scenario_factor * household_efficiency
+            total_household_emissions += co2_emissions_households[region]
+        
+        # Total CO2 emissions
+        total_co2_emissions = total_sectoral_emissions + total_household_emissions
+        
+        # CO2 intensity (tCO2/million EUR GDP)
+        co2_intensity = (total_co2_emissions * 1000) / macroeconomy['real_gdp_total']  # Convert MtCO2 to tCO2
+        
+        return {
+            'total_co2_emissions': total_co2_emissions,  # MtCO2
+            'co2_intensity': co2_intensity,              # tCO2/million EUR
+            'co2_emissions_sectoral': co2_emissions_sectoral,  # MtCO2 by sector
+            'co2_emissions_households': co2_emissions_households,  # MtCO2 by region
+            'sectoral_emissions_total': total_sectoral_emissions,  # MtCO2
+            'household_emissions_total': total_household_emissions  # MtCO2
+        }
+
     def calculate_renewable_investment(self, year, scenario, macroeconomy):
         """
         Calculate renewable energy investment by macro-region
@@ -1261,6 +1377,7 @@ class EnhancedItalianDynamicSimulation:
                 households = year_solution['households']
                 energy = year_solution['energy']
                 carbon_policy = year_solution['carbon_policy']
+                co2_emissions = year_solution['co2_emissions']
                 trade = year_solution['trade']
                 labor_market = year_solution['labor_market']
                 demographics = year_solution['demographics']
@@ -1275,6 +1392,7 @@ class EnhancedItalianDynamicSimulation:
                     'households': households,
                     'energy': energy,
                     'carbon_policy': carbon_policy,
+                    'co2_emissions': co2_emissions,
                     'trade': trade,
                     'labor_market': labor_market,
                     'demographics': demographics,
@@ -1518,6 +1636,46 @@ class EnhancedItalianDynamicSimulation:
             regional_energy_cols = [col for col in regional_energy_df.columns if col.startswith('Total_Energy_')]
             regional_energy_pivot = regional_energy_df.pivot_table(index='Year', columns='Scenario', values=regional_energy_cols)
             regional_energy_pivot.to_excel(writer, sheet_name='Energy_Regional_Totals')
+
+            # 6C. HOUSEHOLD ENERGY DEMAND BY REGION AND CARRIER (DETAILED)
+            print("  Household energy demand by region and carrier...")
+            
+            household_energy_detailed_data = []
+            for scenario, scenario_results in results.items():
+                for result in scenario_results:
+                    row = {'Year': result['year'], 'Scenario': scenario}
+                    
+                    # Add individual carrier demand by region
+                    for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
+                        for carrier in ['electricity', 'gas', 'other_energy']:
+                            carrier_demand = result['energy']['household_energy'][carrier][region]
+                            row[f'{region}_{carrier.title()}_MWh'] = carrier_demand
+                            row[f'{region}_{carrier.title()}_TWh'] = carrier_demand / 1000000
+                        
+                        # Regional total
+                        regional_total = sum(result['energy']['household_energy'][carrier][region] for carrier in ['electricity', 'gas', 'other_energy'])
+                        row[f'{region}_Total_MWh'] = regional_total
+                        row[f'{region}_Total_TWh'] = regional_total / 1000000
+                    
+                    # National totals by carrier
+                    for carrier in ['electricity', 'gas', 'other_energy']:
+                        national_carrier_total = sum(result['energy']['household_energy'][carrier][region] for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
+                        row[f'National_{carrier.title()}_MWh'] = national_carrier_total
+                        row[f'National_{carrier.title()}_TWh'] = national_carrier_total / 1000000
+                    
+                    # Grand national total
+                    grand_national_total = sum(sum(result['energy']['household_energy'][carrier][region] for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']) for carrier in ['electricity', 'gas', 'other_energy'])
+                    row['National_Total_MWh'] = grand_national_total
+                    row['National_Total_TWh'] = grand_national_total / 1000000
+                    
+                    household_energy_detailed_data.append(row)
+            
+            household_energy_detailed_df = pd.DataFrame(household_energy_detailed_data)
+            
+            # Create pivot table for detailed household energy demand by region and carrier
+            household_energy_detailed_cols = [col for col in household_energy_detailed_df.columns if col not in ['Year', 'Scenario']]
+            household_energy_detailed_pivot = household_energy_detailed_df.pivot_table(index='Year', columns='Scenario', values=household_energy_detailed_cols)
+            household_energy_detailed_pivot.to_excel(writer, sheet_name='Household_Energy_by_Region')
             
             # 7. CLIMATE POLICY - CO2 PRICES AND REVENUES
             print("  Carbon policy...")
@@ -1540,6 +1698,51 @@ class EnhancedItalianDynamicSimulation:
                                                values=['ETS1_Price_EUR_per_tCO2', 'ETS2_Price_EUR_per_tCO2', 
                                                       'Total_Revenue_Billion_EUR', 'ETS1_Revenue_Billion_EUR', 'ETS2_Revenue_Billion_EUR'])
             carbon_pivot.to_excel(writer, sheet_name='Climate_Policy')
+            
+            # 7B. CO2 EMISSIONS - TOTAL AND INTENSITY
+            print("  CO2 emissions and intensity...")
+            
+            co2_data = []
+            for scenario, scenario_results in results.items():
+                for result in scenario_results:
+                    row = {
+                        'Year': result['year'],
+                        'Scenario': scenario,
+                        'Total_CO2_Emissions_MtCO2': result['co2_emissions']['total_co2_emissions'],
+                        'CO2_Intensity_tCO2_per_Million_EUR': result['co2_emissions']['co2_intensity'],
+                        'Sectoral_Emissions_Total_MtCO2': result['co2_emissions']['sectoral_emissions_total'],
+                        'Household_Emissions_Total_MtCO2': result['co2_emissions']['household_emissions_total']
+                    }
+                    
+                    # Add sectoral CO2 emissions
+                    for sector, emissions in result['co2_emissions']['co2_emissions_sectoral'].items():
+                        row[f'CO2_Emissions_{sector}_MtCO2'] = emissions
+                    
+                    # Add regional household CO2 emissions
+                    for region, emissions in result['co2_emissions']['co2_emissions_households'].items():
+                        row[f'CO2_Emissions_Households_{region}_MtCO2'] = emissions
+                    
+                    co2_data.append(row)
+            
+            co2_df = pd.DataFrame(co2_data)
+            
+            # Total CO2 emissions and intensity
+            co2_totals_cols = ['Total_CO2_Emissions_MtCO2', 'CO2_Intensity_tCO2_per_Million_EUR', 
+                              'Sectoral_Emissions_Total_MtCO2', 'Household_Emissions_Total_MtCO2']
+            co2_totals_pivot = co2_df.pivot_table(index='Year', columns='Scenario', values=co2_totals_cols)
+            co2_totals_pivot.to_excel(writer, sheet_name='CO2_Emissions_Totals')
+            
+            # Sectoral CO2 emissions
+            co2_sectoral_cols = [col for col in co2_df.columns if col.startswith('CO2_Emissions_') and col.endswith('_MtCO2') and 'Households' not in col and 'Total' not in col]
+            if co2_sectoral_cols:
+                co2_sectoral_pivot = co2_df.pivot_table(index='Year', columns='Scenario', values=co2_sectoral_cols)
+                co2_sectoral_pivot.to_excel(writer, sheet_name='CO2_Emissions_Sectoral')
+            
+            # Regional household CO2 emissions
+            co2_household_cols = [col for col in co2_df.columns if col.startswith('CO2_Emissions_Households_')]
+            if co2_household_cols:
+                co2_household_pivot = co2_df.pivot_table(index='Year', columns='Scenario', values=co2_household_cols)
+                co2_household_pivot.to_excel(writer, sheet_name='CO2_Emissions_Households')
             
             # 8. TRADE - EXPORTS AND IMPORTS
             print("  Trade...")
@@ -1695,6 +1898,26 @@ class EnhancedItalianDynamicSimulation:
             print(f"   Electricity: {elec_2021/1000000:.1f} TWh (2021) → {elec_2050/1000000:.1f} TWh (2050)")
             print(f"   Gas: {gas_2021/1000000:.1f} TWh (2021) → {gas_2050/1000000:.1f} TWh (2050)")
         
+        # CO2 Emissions Evolution
+        if 'BAU' in results and results['BAU']:
+            co2_2021 = results['BAU'][0]['co2_emissions']['total_co2_emissions']
+            co2_2050 = results['BAU'][-1]['co2_emissions']['total_co2_emissions']
+            intensity_2021 = results['BAU'][0]['co2_emissions']['co2_intensity']
+            intensity_2050 = results['BAU'][-1]['co2_emissions']['co2_intensity']
+            
+            print(f"\nCO2 Emissions Evolution (BAU scenario):")
+            print(f"   Total CO2: {co2_2021:.1f} MtCO2 (2021) → {co2_2050:.1f} MtCO2 (2050)")
+            print(f"   CO2 Intensity: {intensity_2021:.0f} tCO2/M€ (2021) → {intensity_2050:.0f} tCO2/M€ (2050)")
+            
+            # Compare scenarios in 2050
+            if 'ETS1' in results and results['ETS1']:
+                ets1_co2_2050 = results['ETS1'][-1]['co2_emissions']['total_co2_emissions']
+                print(f"   ETS1 scenario 2050: {ets1_co2_2050:.1f} MtCO2 ({((ets1_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
+            
+            if 'ETS2' in results and results['ETS2']:
+                ets2_co2_2050 = results['ETS2'][-1]['co2_emissions']['total_co2_emissions']
+                print(f"   ETS2 scenario 2050: {ets2_co2_2050:.1f} MtCO2 ({((ets2_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
+
         # Carbon Policy
         if 'ETS1' in results and results['ETS1']:
             ets1_price_2050 = results['ETS1'][-1]['carbon_policy']['ets1_price']

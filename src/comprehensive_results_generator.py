@@ -1128,6 +1128,59 @@ class ComprehensiveResultsGenerator:
             df_regions_energy = pd.DataFrame(regions_energy_data)
             df_regions_energy.to_excel(writer, sheet_name='Energy_Demand_Households_MWh', index=False)
             
+            # 3B. Total Household Energy Demand by Macro Region (Summary)
+            total_demand_by_region_data = []
+            
+            for region, energy_data in results['energy_demand_households_mwh'].items():
+                # Calculate total energy demand for each region across all carriers
+                electricity_demand = energy_data.get('Electricity_MWh', 0)
+                gas_demand = energy_data.get('Gas_MWh', 0) 
+                other_energy_demand = energy_data.get('Other_Energy_MWh', 0)
+                total_demand = electricity_demand + gas_demand + other_energy_demand
+                
+                total_demand_by_region_data.append({
+                    'Region_Code': region,
+                    'Region_Name': region_mapping.get(region, region),
+                    'Population_Share': round(model_definitions.regional_population_shares.get(region, 0), 3),
+                    'Electricity_MWh': electricity_demand,
+                    'Electricity_TWh': round(electricity_demand / 1000000, 3),
+                    'Gas_MWh': gas_demand,
+                    'Gas_TWh': round(gas_demand / 1000000, 3),
+                    'Other_Energy_MWh': other_energy_demand,
+                    'Other_Energy_TWh': round(other_energy_demand / 1000000, 3),
+                    'Total_Energy_MWh': total_demand,
+                    'Total_Energy_TWh': round(total_demand / 1000000, 3),
+                    'Electricity_Share_Percent': round((electricity_demand / total_demand * 100) if total_demand > 0 else 0, 1),
+                    'Gas_Share_Percent': round((gas_demand / total_demand * 100) if total_demand > 0 else 0, 1),
+                    'Other_Energy_Share_Percent': round((other_energy_demand / total_demand * 100) if total_demand > 0 else 0, 1)
+                })
+            
+            # Calculate national totals
+            national_electricity = sum([row['Electricity_MWh'] for row in total_demand_by_region_data])
+            national_gas = sum([row['Gas_MWh'] for row in total_demand_by_region_data])
+            national_other_energy = sum([row['Other_Energy_MWh'] for row in total_demand_by_region_data])
+            national_total = national_electricity + national_gas + national_other_energy
+            
+            total_demand_by_region_data.append({
+                'Region_Code': 'ITALY',
+                'Region_Name': 'ITALY (National Total)',
+                'Population_Share': 1.000,
+                'Electricity_MWh': national_electricity,
+                'Electricity_TWh': round(national_electricity / 1000000, 3),
+                'Gas_MWh': national_gas,
+                'Gas_TWh': round(national_gas / 1000000, 3),
+                'Other_Energy_MWh': national_other_energy,
+                'Other_Energy_TWh': round(national_other_energy / 1000000, 3),
+                'Total_Energy_MWh': national_total,
+                'Total_Energy_TWh': round(national_total / 1000000, 3),
+                'Electricity_Share_Percent': round((national_electricity / national_total * 100) if national_total > 0 else 0, 1),
+                'Gas_Share_Percent': round((national_gas / national_total * 100) if national_total > 0 else 0, 1),
+                'Other_Energy_Share_Percent': round((national_other_energy / national_total * 100) if national_total > 0 else 0, 1)
+            })
+            
+            df_total_demand_by_region = pd.DataFrame(total_demand_by_region_data)
+            df_total_demand_by_region.to_excel(writer, sheet_name='Total_Demand_by_Macro_Region', index=False)
+            
             # 4. Energy Prices (EUR/MWh)
             energy_prices_data = []
             for price_type, price_value in results['energy_prices_eur_per_mwh'].items():
