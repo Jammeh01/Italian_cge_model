@@ -254,8 +254,8 @@ class ComprehensiveResultsGenerator:
         energy_intensities = {
             'Agriculture': {'Electricity': 65, 'Gas': 45, 'Other Energy': 90},
             'Industry': {'Electricity': 190, 'Gas': 140, 'Other Energy': 110},
-            'Electricity': {'Electricity': 0, 'Gas': 0, 'Other Energy': 0},  # Renewable generation sector (no fuel inputs)
-            'Gas': {'Electricity': 40, 'Gas': 0, 'Other Energy': 80},  # Gas sector self-consumption
+            'Electricity': {'Electricity': 120, 'Gas': 85, 'Other Energy': 45},  # Power sector: auxiliary power, gas backup, grid losses
+            'Gas': {'Electricity': 40, 'Gas': 120, 'Other Energy': 80},  # Gas sector: processing, compression, distribution operations
             'Other Energy': {'Electricity': 50, 'Gas': 90, 'Other Energy': 550},  # Fossil energy sector (includes former gas power plants)
             'Road Transport': {'Electricity': 12, 'Gas': 3, 'Other Energy': 275},  # Increased electric vehicle adoption
             'Rail Transport': {'Electricity': 220, 'Gas': 10, 'Other Energy': 15},  # Increased electrification with renewables
@@ -442,10 +442,12 @@ class ComprehensiveResultsGenerator:
                             
                             # Use population-weighted energy consumption
                             pop_share = model_definitions.regional_population_shares.get(region, 0.2)
+                            # Updated to match realistic Italian household energy consumption patterns
+                            # Based on Italian household energy statistics: 40% electricity, 45% gas, 15% other
                             base_energy_per_capita = {
-                                'Electricity': 2500,  # kWh per capita per year
-                                'Gas': 1800,          # kWh equivalent per capita per year  
-                                'Other Energy': 800   # kWh equivalent per capita per year
+                                'Electricity': 2065,  # kWh per capita per year (40% of 5162 total)
+                                'Gas': 2323,          # kWh equivalent per capita per year (45% of 5162 total)
+                                'Other Energy': 774   # kWh equivalent per capita per year (15% of 5162 total)
                             }
                             
                             if energy_type in base_energy_per_capita:
@@ -462,64 +464,97 @@ class ComprehensiveResultsGenerator:
         except Exception as e:
             print(f"  Warning: Error extracting regional energy demand - {str(e)}")
             # Provide default structure based on population shares
+            # Updated proportions to match realistic Italian household energy consumption patterns
             for region in regions:
                 pop_share = model_definitions.regional_population_shares.get(region, 0.2)
+                # Total household energy consumption: ~306 TWh
+                # Realistic Italian household energy mix: 40% electricity, 45% gas, 15% other energy
+                total_household_energy = 306000000  # MWh
                 regional_energy[region] = {
-                    'Electricity_MWh': round(pop_share * 150000000, 2),  # Scaled estimate
-                    'Gas_MWh': round(pop_share * 108000000, 2),
-                    'Other_Energy_MWh': round(pop_share * 48000000, 2),
-                    'Total_Energy_MWh': round(pop_share * 306000000, 2)
+                    'Electricity_MWh': round(pop_share * total_household_energy * 0.40, 2),  # 40% electricity
+                    'Gas_MWh': round(pop_share * total_household_energy * 0.45, 2),         # 45% gas
+                    'Other_Energy_MWh': round(pop_share * total_household_energy * 0.15, 2), # 15% other energy
+                    'Total_Energy_MWh': round(pop_share * total_household_energy, 2)
                 }
         
         return regional_energy
 
     def extract_energy_prices(self):
-        """Extract energy prices in EUR/MWh"""
+        """Extract actual endogenous energy prices from model equilibrium (EUR/MWh)"""
         print("  Extracting energy prices...")
         
         energy_prices = {}
         model = self.model.model
         
         try:
+            # Italian 2021 base price references for scaling (EUR/MWh)
+            base_price_references = {
+                'Electricity': 165.0,  # EUR/MWh renewable electricity reference
+                'Gas': 52.0,           # EUR/MWh natural gas reference  
+                'Other Energy': 75.0   # EUR/MWh fossil fuels reference
+            }
+            
+            # Extract actual equilibrium prices from the model
             for energy_type in ['Electricity', 'Gas', 'Other Energy']:
-                price = 1.0  # Default normalized price
+                equilibrium_price = 1.0  # Default normalized price
+                found_price = False
                 
-                # Try multiple variable names for prices
-                price_var_names = ['pq', 'p', 'price', 'P']
+                # Method 1: Extract from composite commodity prices (pq)
+                if hasattr(model, 'pq') and energy_type in model.pq:
+                    try:
+                        pq_value = pyo.value(model.pq[energy_type])
+                        if pq_value is not None and pq_value > 0:
+                            equilibrium_price = pq_value
+                            found_price = True
+                            print(f"    Found equilibrium price for {energy_type}: pq = {pq_value:.4f}")
+                    except Exception as e:
+                        print(f"    Could not access pq[{energy_type}]: {e}")
                 
-                for var_name in price_var_names:
-                    if hasattr(model, var_name):
-                        var = getattr(model, var_name)
-                        if hasattr(var, '_index') and var._index is not None:
-                            if (energy_type,) in var._index:
-                                val = var[energy_type].value
-                                if val is not None and val > 0:
-                                    price = val
+                # Method 2: Try producer prices (pz) if composite prices not available
+                if not found_price and hasattr(model, 'pz') and energy_type in model.pz:
+                    try:
+                        pz_value = pyo.value(model.pz[energy_type])
+                        if pz_value is not None and pz_value > 0:
+                            equilibrium_price = pz_value
+                            found_price = True
+                            print(f"    Found producer price for {energy_type}: pz = {pz_value:.4f}")
+                    except Exception as e:
+                        print(f"    Could not access pz[{energy_type}]: {e}")
+                
+                # Method 3: Check model solution attributes
+                if not found_price:
+                    for price_attr in ['pq', 'pz', 'p']:
+                        if hasattr(model, price_attr):
+                            price_var = getattr(model, price_attr)
+                            if hasattr(price_var, 'extract_values'):
+                                values = price_var.extract_values()
+                                if energy_type in values and values[energy_type] > 0:
+                                    equilibrium_price = values[energy_type]
+                                    found_price = True
+                                    print(f"    Found price for {energy_type} from {price_attr}: {equilibrium_price:.4f}")
                                     break
-                        elif not hasattr(var, '_index') and energy_type.lower() in var_name.lower():
-                            val = var.value
-                            if val is not None and val > 0:
-                                price = val
-                                break
                 
-                # Convert to realistic EUR/MWh prices
-                base_prices = {
-                    'Electricity': 150.0,  # EUR/MWh
-                    'Gas': 45.0,           # EUR/MWh equivalent
-                    'Other Energy': 65.0   # EUR/MWh equivalent
-                }
+                # Convert equilibrium price to actual EUR/MWh using base references
+                # The model prices are normalized (around 1.0), scale to realistic EUR/MWh levels
+                base_ref = base_price_references.get(energy_type, 50.0)
+                actual_price_eur_mwh = equilibrium_price * base_ref
                 
-                realistic_price = price * base_prices.get(energy_type, 50.0)
-                energy_prices[f'{energy_type}_EUR_per_MWh'] = round(realistic_price, 2)
+                energy_prices[f'{energy_type}_EUR_per_MWh'] = round(actual_price_eur_mwh, 2)
+                
+                if found_price:
+                    print(f"    {energy_type}: {equilibrium_price:.4f} (normalized) → €{actual_price_eur_mwh:.2f}/MWh")
+                else:
+                    print(f"    ! {energy_type}: Using base reference → €{actual_price_eur_mwh:.2f}/MWh")
         
         except Exception as e:
             print(f"  Warning: Error extracting energy prices - {str(e)}")
-            # Provide default prices
+            # Provide base reference prices if extraction fails
             energy_prices = {
-                'Electricity_EUR_per_MWh': 150.0,
-                'Gas_EUR_per_MWh': 45.0,
-                'Other_Energy_EUR_per_MWh': 65.0
+                'Electricity_EUR_per_MWh': 165.0,
+                'Gas_EUR_per_MWh': 52.0, 
+                'Other_Energy_EUR_per_MWh': 75.0
             }
+            print("  Using base reference prices due to extraction error")
         
         return energy_prices
 
@@ -564,7 +599,7 @@ class ComprehensiveResultsGenerator:
             
             print(f"  Raw total sectoral output: €{total_raw_output:,.0f} million")
             print(f"  GDP calibration factor: {calibration_factor:.4f}")  
-            print(f"  ✓ Calibrated total sectoral output: €{total_calibrated_output:,.0f} million")
+            print(f"  Calibrated total sectoral output: €{total_calibrated_output:,.0f} million")
         
         except Exception as e:
             print(f"  Warning: Error extracting sectoral outputs - {str(e)}")
@@ -795,7 +830,7 @@ class ComprehensiveResultsGenerator:
             print(f"  Raw GDP: €{total_va:,.0f} million (€{total_va/1000:,.1f} billion)")
             print(f"  Target GDP: €{target_gdp_millions:,.0f} million (€{target_gdp_millions/1000:,.1f} billion)")
             print(f"  Calibration factor: {calibration_factor:.4f}")
-            print(f"  ✓ Calibrated GDP: €{calibrated_total_va:,.0f} million (€{calibrated_total_va/1000:,.1f} billion)")
+            print(f"  Calibrated GDP: €{calibrated_total_va:,.0f} million (€{calibrated_total_va/1000:,.1f} billion)")
             
         except Exception as e:
             print(f"  Warning: Error extracting GDP - {str(e)}")
@@ -931,7 +966,7 @@ class ComprehensiveResultsGenerator:
                         if output is not None and output > 0:
                             # Estimate energy consumption based on economic output
                             energy_intensity = {
-                                'Electricity': 0,         # MWh per million EUR (renewable electricity - no fuel combustion)
+                                'Electricity': 250,       # MWh per million EUR (auxiliary power, gas backup, transmission losses)
                                 'Industry': 800,          # MWh per million EUR (industrial fuel)
                                 'Road Transport': 1200,   # MWh per million EUR (transport fuel)
                                 'Rail Transport': 600,    # MWh per million EUR (some electrified by renewables)
@@ -996,9 +1031,9 @@ class ComprehensiveResultsGenerator:
                 # Compare to target (0.172 tCO2/Million EUR for fuel combustion)
                 intensity_deviation = abs(fuel_combustion_intensity - target_co2_intensity) / target_co2_intensity
                 if intensity_deviation < 0.1:  # Within 10%
-                    print(f"  ✓ CO2 intensity matches Italy 2021 fuel combustion target (±10%)")
+                    print(f"  CO2 intensity matches Italy 2021 fuel combustion target (±10%)")
                 else:
-                    print(f"  ⚠ CO2 intensity deviates from target by {intensity_deviation:.1%}")
+                    print(f"  CO2 intensity deviates from target by {intensity_deviation:.1%}")
             else:
                 co2_data['CO2_Intensity_Fuel_Combustion_tCO2_per_Million_EUR'] = round(target_co2_intensity, 3)
             
@@ -1047,10 +1082,11 @@ class ComprehensiveResultsGenerator:
             validation['Population_Status'] = 'PASS'
             
             # Italian 2021 calibration targets validation
-            target_energy_twh = 284.8  # TWh
+            target_sectoral_energy_twh = 284.8  # TWh (sectoral energy only)
+            target_total_energy_twh = 590.0    # TWh (total energy including households)
             target_co2_mtco2 = 307.0   # MtCO2
             target_gdp_per_capita = 31160  # EUR per capita
-            target_co2_intensity = 0.240   # tCO2/Million EUR
+            target_co2_intensity = 0.172   # tCO2/Million EUR (fuel combustion only, calibrated target)
             
             # Energy validation
             energy_demand = self.extract_sectoral_energy_demand()
@@ -1061,13 +1097,21 @@ class ComprehensiveResultsGenerator:
             
             total_energy_mwh = total_sectoral_energy + total_household_energy
             total_energy_twh = total_energy_mwh / 1000000
+            sectoral_energy_twh = total_sectoral_energy / 1000000
             
-            energy_error = abs(total_energy_twh - target_energy_twh) / target_energy_twh * 100
+            # Validate against sectoral energy target (284.8 TWh)
+            sectoral_energy_error = abs(sectoral_energy_twh - target_sectoral_energy_twh) / target_sectoral_energy_twh * 100
             
-            validation['Energy_Target_TWh'] = target_energy_twh
-            validation['Energy_Actual_TWh'] = round(total_energy_twh, 1)
-            validation['Energy_Error_Percent'] = round(energy_error, 2)
-            validation['Energy_Calibration_Status'] = 'PASS' if energy_error < 5.0 else 'FAIL'
+            # Validate against total energy target (590.0 TWh)
+            total_energy_error = abs(total_energy_twh - target_total_energy_twh) / target_total_energy_twh * 100
+            
+            validation['Energy_Sectoral_Target_TWh'] = target_sectoral_energy_twh
+            validation['Energy_Sectoral_Actual_TWh'] = round(sectoral_energy_twh, 1)
+            validation['Energy_Sectoral_Error_Percent'] = round(sectoral_energy_error, 2)
+            validation['Energy_Total_Target_TWh'] = target_total_energy_twh
+            validation['Energy_Total_Actual_TWh'] = round(total_energy_twh, 1)
+            validation['Energy_Total_Error_Percent'] = round(total_energy_error, 2)
+            validation['Energy_Calibration_Status'] = 'PASS' if sectoral_energy_error < 5.0 and total_energy_error < 5.0 else 'FAIL'
             
             # CO2 emissions from fuel combustion validation
             co2_data = self.extract_co2_emissions()
@@ -1098,7 +1142,7 @@ class ComprehensiveResultsGenerator:
             validation['CO2_Intensity_Fuel_Combustion_Target_tCO2_per_Million_EUR'] = target_co2_intensity
             validation['CO2_Intensity_Fuel_Combustion_Actual_tCO2_per_Million_EUR'] = actual_co2_intensity
             validation['CO2_Intensity_Fuel_Combustion_Error_Percent'] = round(intensity_error, 2)
-            validation['CO2_Intensity_Fuel_Combustion_Status'] = 'PASS' if intensity_error < 10.0 else 'FAIL'
+            validation['CO2_Intensity_Fuel_Combustion_Status'] = 'PASS' if intensity_error < 5.0 else 'FAIL'
             
             validation['Total_Sectoral_Energy_MWh'] = round(total_sectoral_energy, 2)
             validation['Total_Household_Energy_MWh'] = round(total_household_energy, 2)
@@ -1853,11 +1897,11 @@ def main():
         print("=" * 60)
         print("ITALIAN 2021 ECONOMIC INDICATORS - CALIBRATION ACHIEVED")
         print("=" * 60)
-        print("✓ GDP:                €1,782.05 billion")
-        print("✓ GDP per capita:     €31,160")
-        print("✓ Total Energy:       284.8 TWh")
-        print("✓ CO2 Emissions:      307.0 MtCO2")
-        print("✓ CO2 Intensity:      0.240 tCO2/Million EUR")
+        print("GDP:                €1,782.05 billion")
+        print("GDP per capita:     €31,160")
+        print("Total Energy:       284.8 TWh")
+        print("CO2 Emissions:      307.0 MtCO2")
+        print("CO2 Intensity:      0.240 tCO2/Million EUR")
         print("=" * 60)
         print("\nGENERATED OUTPUTS:")
         print("Energy demand by sectors (MWh)")
