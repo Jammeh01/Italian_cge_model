@@ -108,8 +108,8 @@ def run_dynamic_simulation():
         for year in years:
             print(f"  📅 Year {year}...", end=' ')
 
-            # Calculate dynamic carbon price (starts at €100/tCO2, grows 3% annually)
-            carbon_price = 100 * (1.03 ** (year - 2021))
+            # Calculate dynamic carbon price (starts at €53.90/tCO2, grows 4% annually)
+            carbon_price = 53.90 * (1.04 ** (year - 2021))
 
             result = ETS1_scenario(year=year, carbon_price=carbon_price)
             if result and result.get('solved', False):
@@ -168,10 +168,10 @@ def run_dynamic_simulation():
             print(f"  📅 Year {year}...", end=' ')
 
             # Calculate dynamic carbon prices
-            # ETS1 industrial price: €134/tCO2 in 2027, grows 3%
-            # ETS2 buildings/transport price: €45/tCO2 in 2027, grows 5%
-            ets1_price = 134 * (1.03 ** (year - 2027))
-            ets2_price = 45 * (1.05 ** (year - 2027))
+            # ETS1 industrial price: €134/tCO2 in 2027, grows 4%
+            # ETS2 buildings/transport price: €45/tCO2 in 2027, grows 2.5%
+            ets1_price = 134 * (1.04 ** (year - 2027))
+            ets2_price = 45 * (1.025 ** (year - 2027))
 
             result = ETS2_scenario(
                 year=year, ets1_price=ets1_price, ets2_price=ets2_price)

@@ -9,7 +9,7 @@ Output Indicators:
 - Production: value added by sector (aligned to aggregated sectoral mapping)
 - Households: income and expenditure by macro-region (Northwest, Northeast, Centre, South, Islands)
 - Energy: annual final energy demand by sector and households (MWh, disaggregated by carrier)
-- Climate policy: CO₂ price levels (ETS1 and ETS2), total carbon tax/ETS revenues
+- Climate policy: CO2 price levels (ETS1 and ETS2), total carbon tax/ETS revenues
 - Trade: exports and imports
 - Labor Market: employment, unemployment, labor force by region
 - Demographics: population growth/decline by region  
@@ -226,7 +226,7 @@ class EnhancedItalianDynamicSimulation:
             
             # Sectoral productivity growth
             'sectoral_productivity': {
-                'Agriculture': 0.012,   # 1.2% annual
+                'Agriculture': 0.012,   # 1.2% annual  
                 'Industry': 0.018,     # 1.8% annual
                 'Energy': 0.035,       # 3.5% annual (renewable transition)
                 'Transport': 0.020,    # 2.0% annual (efficiency improvements)
@@ -240,10 +240,10 @@ class EnhancedItalianDynamicSimulation:
             
             # Carbon pricing parameters (EUR/tCO2)
             'carbon_prices': {
-                'ets1_initial': 100.0,     # ETS1 starting price in 2021
-                'ets1_growth_rate': 0.03,   # 3% annual growth
+                'ets1_initial': 53.90,     # ETS1 starting price in 2021 (actual EU ETS price)
+                'ets1_growth_rate': 0.04,   # 4% annual growth
                 'ets2_initial': 45.0,       # ETS2 starting price in 2027
-                'ets2_growth_rate': 0.05    # 5% annual growth
+                'ets2_growth_rate': 0.025   # 2.5% annual growth
             },
             
             # Inflation rates
@@ -260,9 +260,9 @@ class EnhancedItalianDynamicSimulation:
         print("Scenarios: BAU, ETS1 (Industry), ETS2 (+Buildings & Transport)")
         
         if IPOPT_AVAILABLE:
-            print("✅ IPOPT solver will be used for dynamic equilibrium computation")
+            print("IPOPT solver will be used for dynamic equilibrium computation")
         else:
-            print("⚠️  IPOPT not available - using analytical approximation")
+            print("IPOPT not available - using analytical approximation")
 
     def solve_dynamic_cge_with_ipopt(self, year, scenario, previous_year_data=None):
         """
@@ -950,7 +950,7 @@ class EnhancedItalianDynamicSimulation:
 
     def calculate_carbon_policy(self, year, scenario):
         """
-        Calculate CO₂ price levels (ETS1 and ETS2) and total carbon tax/ETS revenues
+        Calculate CO2 price levels (ETS1 and ETS2) and total carbon tax/ETS revenues
         """
         years_from_base = year - self.base_year
         
@@ -1951,7 +1951,7 @@ def main():
     print("   • Production: value added by sector")
     print("   • Households: income and expenditure by macro-region")
     print("   • Energy: final energy demand by sector and households (MWh, by carrier)")
-    print("   • Climate policy: CO₂ price levels, carbon tax/ETS revenues")
+    print("   • Climate policy: CO2 price levels, carbon tax/ETS revenues")
     print("   • Trade: exports and imports")
     
     # Initialize and run simulation

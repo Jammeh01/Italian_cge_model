@@ -26,7 +26,7 @@ def test_eu_ets_pricing():
     
     # Test price growth
     ets1_2025 = model_definitions.get_carbon_price(2025, 'ETS1')
-    expected_2025 = 53.90 * (1.05 ** 4)  # 4 years of 5% growth
+    expected_2025 = 53.90 * (1.04 ** 4)  # 4 years of 4% growth
     print(f"ETS1 price in 2025: €{ets1_2025:.2f}/tCO2e (expected: €{expected_2025:.2f})")
     assert abs(ets1_2025 - expected_2025) < 0.01, f"Price growth calculation error"
     

@@ -500,8 +500,8 @@ class ItalianDynamicSimulation:
         # Apply scenario-specific price effects
         if scenario == 'ETS1' and year >= 2021:
             # Industrial carbon pricing affects electricity prices
-            # EUR/tCO2, growing 3% annually
-            carbon_price = 100 * (1.03 ** years_elapsed)
+            # EUR/tCO2, growing 4% annually from 2021 actual EU ETS price
+            carbon_price = 53.90 * (1.04 ** years_elapsed)
             # EUR/MWh (0.35 kg CO2/kWh * 1000)
             electricity_premium = carbon_price * 0.35
             gas_premium = carbon_price * 2.03  # EUR/MWh equivalent
@@ -509,8 +509,8 @@ class ItalianDynamicSimulation:
         elif scenario == 'ETS2' and year >= 2027:
             # Buildings & transport carbon pricing (starts 2027)
             if year >= 2027:
-                ets1_carbon_price = 134 * (1.03 ** (year - 2027))
-                ets2_carbon_price = 45 * (1.05 ** (year - 2027))
+                ets1_carbon_price = 134 * (1.04 ** (year - 2027))
+                ets2_carbon_price = 45 * (1.025 ** (year - 2027))
                 electricity_premium = ets1_carbon_price * 0.312 / 1000
                 gas_premium = ets2_carbon_price * 2.03 / 1000
             else:

@@ -749,14 +749,14 @@ class ItalianCGEAnalyzer:
         ETS1 (Industrial Carbon Pricing):
         - Start: 2021
         - Coverage: Industrial sectors
-        - Carbon Price: €100/tCO2 (2021)
-        - Price Growth: 3% annually
+        - Carbon Price: €53.90/tCO2 (2021)
+        - Price Growth: 4% annually
         
         ETS2 (Buildings & Transport):
         - Start: 2027
         - Coverage: Buildings, Transport
         - Carbon Price: €45/tCO2 (2027)
-        - Price Growth: 5% annually
+        - Price Growth: 2.5% annually
         
         KEY MILESTONES:
         - 2030: EU Climate Target (-55%)

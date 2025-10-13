@@ -169,12 +169,12 @@ Three policy scenarios analyzed:
 2. ETS1 (Industrial Carbon Pricing):
    - Carbon pricing for industrial sectors
    - Start: 2021
-   - Price: €100/tCO2 (2021), growing at 3% annually
+   - Price: €53.90/tCO2 (2021), growing at 4% annually
 
 3. ETS2 (Buildings & Transport Pricing):
    - Extended carbon pricing to buildings and transport
    - Start: 2027
-   - Price: €45/tCO2 (2027), growing at 5% annually
+   - Price: €45/tCO2 (2027), growing at 2.5% annually
 
 SIMULATION RESULTS SUMMARY
 ==========================
@@ -267,12 +267,12 @@ Based on comprehensive model analysis:
 
 1. IMMEDIATE ACTIONS:
    - Implement ETS1 for industrial sectors
-   - Establish carbon price of €100/tCO2
+   - Establish carbon price of €53.90/tCO2
    - Monitor economic impacts quarterly
 
 2. MEDIUM-TERM STRATEGY (2027+):
    - Extend carbon pricing to buildings/transport (ETS2)
-   - Start at €45/tCO2 with 5% annual growth
+   - Start at €45/tCO2 with 2.5% annual growth
    - Coordinate with EU ETS expansion
 
 3. SUPPORTING MEASURES:
@@ -646,7 +646,7 @@ POLICY RECOMMENDATIONS
 
 IMMEDIATE (2024-2025):
 1. Implement ETS1 for industrial sectors
-   - Start with €100/tCO2 carbon price
+   - Start with €53.90/tCO2 carbon price
    - Cover manufacturing, chemicals, steel, cement
    - Expected CO2 reduction: {co2_reduction_2030_ets1:.1f}% by 2030
 

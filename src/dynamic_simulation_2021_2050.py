@@ -34,7 +34,7 @@ class DynamicCGESimulation:
         # Scenario definitions
         self.scenarios = {
             'BAU': {'start_year': 2021, 'carbon_price': 0, 'description': 'Business As Usual'},
-            'ETS1': {'start_year': 2021, 'carbon_price': 100, 'description': 'Industrial Carbon Pricing'},
+            'ETS1': {'start_year': 2021, 'carbon_price': 53.90, 'description': 'Industrial Carbon Pricing'},
             'ETS2': {'start_year': 2027, 'carbon_price': 45, 'description': 'Buildings & Transport Carbon Pricing'}
         }
 
@@ -98,13 +98,13 @@ class DynamicCGESimulation:
         # 5. Carbon pricing effects (only for ETS scenarios)
         carbon_price = 0
         if scenario == 'ETS1' and year >= 2021:
-            # Industrial carbon pricing: starts at €100/tCO2, grows 3% annually
-            carbon_price = 100 * (1.03 ** years_elapsed)
+            # Industrial carbon pricing: starts at €53.90/tCO2, grows 4% annually
+            carbon_price = 53.90 * (1.04 ** years_elapsed)
         elif scenario == 'ETS2' and year >= 2027:
-            # Buildings & transport carbon pricing: starts at €45/tCO2 in 2027
+            # Buildings & transport carbon pricing: starts at €45/tCO2 in 2027, grows 2.5% annually
             years_from_2027 = year - 2027
             carbon_price = 45 * \
-                (1.05 ** years_from_2027) if years_from_2027 >= 0 else 0
+                (1.025 ** years_from_2027) if years_from_2027 >= 0 else 0
 
         # Update parameters
         dynamic_params = base_params.copy()

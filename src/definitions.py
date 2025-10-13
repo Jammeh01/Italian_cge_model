@@ -236,7 +236,7 @@ class ModelDefinitions:
         self.ets1_policy = {
             'start_year': 2021,
             'base_carbon_price': 53.90,  # €53.90/tCO2e in 2021 (actual EU ETS price)
-            'price_growth_rate': 0.05,   # 5% annual growth
+            'price_growth_rate': 0.04,   # 4% annual growth
             'price_cap': None,           # No formal price ceiling - relies on Market Stability Reserve (MSR)
             'has_msr': True,            # Market Stability Reserve mechanism
             # Based on your specification
@@ -249,7 +249,7 @@ class ModelDefinitions:
         self.ets2_policy = {
             'start_year': 2027,
             'base_carbon_price': 45.0,   # €45.0/tCO2e in 2027 (EU ETS2 starting price)
-            'price_growth_rate': 0.07,   # 7% annual growth
+            'price_growth_rate': 0.025,  # 2.5% annual growth
             'price_cap': 45.0,           # Price Stability Mechanism (PSM) ceiling at €45/tCO2e
             'price_floor': 22.0,         # Price Stability Mechanism (PSM) floor at €22/tCO2e
             'has_psm': True,            # Price Stability Mechanism
