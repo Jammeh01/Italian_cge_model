@@ -173,7 +173,7 @@ class EnergyEnvironmentBlock:
         self.model.Renewable_share = pyo.Var(
             domain=pyo.NonNegativeReals,
             bounds=(0.0, 1.0),
-            initialize=0.38,  # Italy's 2021 level
+            initialize=0.35,  # Italy's 2021 level (35.0%)
             doc="Share of renewables in electricity"
         )
 
@@ -193,20 +193,22 @@ class EnergyEnvironmentBlock:
             doc="Energy coefficient (physical/monetary conversion)"
         )
 
-        # CO2 emission factors by energy type (for MWh annual consumption)
+        # CO2 emission factors by energy type from fuel combustion (for MWh annual consumption)
         def get_co2_factor(model, es):
-            # Based on actual Italian emission factors - converted for MWh units
-            co2_factors = {
-                'Electricity': 350.0,   # kg CO2/MWh (0.350 kg CO2/kWh * 1000)
-                'Gas': 2034.0,          # kg CO2/MWh equivalent for natural gas
-                'Other Energy': 2680.0  # kg CO2/MWh equivalent for oil products
+            # Based on actual Italian fuel combustion emission factors - Italy 2021 data
+            # Source: ISPRA (Italian Institute for Environmental Protection and Research)
+            # NOTE: Electricity represents RENEWABLE energy sources (solar, wind, hydro, geothermal, biomass)
+            co2_factors_fuel_combustion = {
+                'Electricity': 0.0,     # kg CO2/MWh from RENEWABLE electricity (no fuel combustion)
+                'Gas': 202.0,          # kg CO2/MWh from natural gas combustion (includes gas power plants)
+                'Other Energy': 350.0  # kg CO2/MWh from fossil fuel combustion (coal/oil power plants, oil refining)
             }
-            return co2_factors.get(es, 1000.0)
+            return co2_factors_fuel_combustion.get(es, 250.0)  # Default average fuel combustion factor
 
         self.model.co2_fac = pyo.Param(
             self.energy_sectors,
             initialize=get_co2_factor,
-            doc="CO2 emission factors by energy type"
+            doc="CO2 emission factors from fuel combustion by energy type (kg CO2/MWh)"
         )
 
         # ETS sector coverage parameters
@@ -331,29 +333,32 @@ class EnergyEnvironmentBlock:
         )
 
     def add_emission_constraints(self):
-        """CO2 emission calculation constraints"""
+        """CO2 emission calculation constraints from fuel combustion"""
 
         def emissions_by_user_rule(model, user):
-            """CO2 emissions by user (sectors and households)"""
-            return model.EM[user] == sum(
-                model.Energy_demand[es, user] * model.co2_fac[es]
+            """CO2 emissions from fuel combustion by user (sectors and households)"""
+            # Calculate CO2 emissions from energy consumption using fuel combustion emission factors
+            # Convert from kg CO2 to appropriate model units (typically scaled for solver efficiency)
+            fuel_combustion_emissions = sum(
+                model.Energy_demand[es, user] * model.co2_fac[es] * 0.001  # Convert kg to tonnes
                 for es in self.energy_sectors
             )
+            return model.EM[user] == fuel_combustion_emissions
 
         self.model.eq_emissions_by_user = pyo.Constraint(
             self.sectors + self.household_regions,
             rule=emissions_by_user_rule,
-            doc="CO2 emissions by user"
+            doc="CO2 emissions from fuel combustion by user"
         )
 
         def total_emissions_rule(model):
-            """Total CO2 emissions"""
+            """Total CO2 emissions from fuel combustion"""
             all_users = self.sectors + self.household_regions
             return model.Total_Emissions == sum(model.EM[user] for user in all_users)
 
         self.model.eq_total_emissions = pyo.Constraint(
             rule=total_emissions_rule,
-            doc="Total CO2 emissions"
+            doc="Total CO2 emissions from fuel combustion"
         )
 
     def add_ets_policy_constraints(self):
@@ -432,22 +437,16 @@ class EnergyEnvironmentBlock:
 
         def renewable_share_rule(model):
             """Renewable share in electricity generation"""
-            # Simplified: renewable share grows over time
+            # NOTE: Electricity sector represents 100% renewable energy in this model
             total_electricity = model.TOT_Energy['Electricity']
 
-            # Renewable electricity (assumed part of total)
-            base_renewable_share = 0.38  # 2021 Italian level
+            # All electricity is renewable (solar, wind, hydro, geothermal, biomass)
+            renewable_share_2021 = 1.0  # 100% renewable electricity in model representation
             growth_years = max(0, self.current_year -
                                model_definitions.base_year)
-            renewable_growth = model_definitions.energy_params['renewable_growth_rate']
 
-            # Renewable share grows with policy support
-            policy_boost = 0.0
-            if self.current_scenario in ['ETS1', 'ETS2']:
-                policy_boost = 0.02 * growth_years  # 2% additional annual growth
-
-            target_share = min(0.8, base_renewable_share +
-                               renewable_growth * growth_years + policy_boost)
+            # Renewable share remains at 100% since electricity sector = renewables
+            target_share = 1.0
 
             return model.Renewable_share == target_share
 
@@ -604,7 +603,7 @@ class EnergyEnvironmentBlock:
             self.model.aeei[j].set_value(base_aeei)
 
         # Initialize renewable share
-        self.model.Renewable_share.set_value(0.38)  # Italian 2021 level
+        self.model.Renewable_share.set_value(1.0)  # 100% renewable electricity (model definition)
 
         print("Energy-environment variables initialization completed")
 

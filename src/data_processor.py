@@ -1038,10 +1038,10 @@ class DataProcessor:
                 # 0.312 tCO2/MWh (actual 2021 grid mix)
                 'co2_factor': 0.312,
                 'energy_intensity_elec': 0.0,        # Self-consumption
-                'energy_intensity_gas': 0.468,       # 46.8% gas in electricity generation
+                'energy_intensity_gas': 0.559,       # 55.9% gas in electricity generation
                 'labor_share': 0.45,                  # Energy is capital intensive
-                # 41.3% renewable electricity (actual 2021)
-                'renewable_share': 0.413,
+                # 35.0% renewable electricity
+                'renewable_share': 0.35,
                 'total_generation': 289.7,            # TWh (actual 2021)
                 'capacity_factor': 0.42,              # 42% average capacity factor
                 'transmission_losses': 0.063          # 6.3% transmission losses

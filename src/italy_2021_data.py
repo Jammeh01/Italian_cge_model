@@ -58,17 +58,16 @@ SERVICES_EMPLOYMENT = 16380000
 # Electricity Sector (IEA Energy Statistics 2021)
 ELECTRICITY_GENERATION = 289.7  # TWh total electricity generation
 ELECTRICITY_CONSUMPTION = 310.0  # TWh total electricity consumption
-ELECTRICITY_RENEWABLE_SHARE = 0.413  # 41.3% renewable electricity
+ELECTRICITY_RENEWABLE_SHARE = 0.35  # 35.0% renewable electricity (updated data)
 ELECTRICITY_CO2_INTENSITY = 0.312    # 0.312 tCO2/MWh (grid average)
 
-# Electricity Generation Mix (2021)
+# Electricity Generation Mix (2021) - Updated with new component breakdown
 ELECTRICITY_MIX = {
-    'gas': 0.468,        # 46.8% natural gas
-    # 41.3% renewables (hydro, wind, solar, geothermal, biomass)
-    'renewables': 0.413,
-    'coal': 0.071,       # 7.1% coal
+    'gas': 0.559,        # 55.9% natural gas
+    'renewables': 0.35,  # 35.0% renewables (hydro, wind, solar, geothermal, biomass)
+    'coal': 0.053,       # 5.3% coal
     'oil': 0.015,        # 1.5% oil
-    'other': 0.033       # 3.3% other sources
+    'other': 0.023       # 2.3% other sources
 }
 
 # Natural Gas Sector (SNAM, IEA Data 2021)

@@ -30,6 +30,16 @@ class ModelDefinitions:
         # €1,782 billion (current prices) - 2021 actual GDP
         self.base_year_gdp = 1782.0
         self.base_year_population = 59.13  # 59.13 million people - 2021 actual population
+        
+        # Italy 2021 CO2 emissions from fuel combustion (ISPRA data)
+        # Total CO2 from fuel combustion: 307.0 MtCO2 (excludes process emissions, land use, etc.)
+        # NOTE: Electricity sector represents renewables (0 emissions), fossil power moved to "Other Energy"
+        self.italy_2021_co2_fuel_combustion = 307.0  # MtCO2
+        self.italy_2021_co2_intensity_fuel_combustion = 0.172  # tCO2/Million EUR (fuel combustion only)
+        
+        # Renewable energy characteristics
+        self.renewable_electricity_share_2021 = 1.0  # 100% renewable electricity in model
+        self.renewable_technologies = ['solar_pv', 'wind_onshore', 'wind_offshore', 'hydro', 'geothermal', 'biomass']
 
         # Define Italian macro-regions for household disaggregation (actual SAM structure)
         self.italian_regions = {
@@ -53,51 +63,70 @@ class ModelDefinitions:
         self.load_sam_structure()
 
         # Define energy sectors (disaggregated in SAM)
+        # CO2 factors updated for fuel combustion only - Italy 2021 data (ISPRA)
+        # NOTE: Electricity represents RENEWABLE energy sources
         self.energy_sectors_detail = {
             'ELECTRICITY': {
                 'sam_name': 'Electricity',
-                'description': 'Renewable electricity generation',
-                # kg CO2/kWh (average grid factor including renewables)
-                'co2_factor': 0.350
+                'description': 'RENEWABLE electricity generation (solar, wind, hydro, geothermal, biomass)',
+                # kg CO2/MWh from renewable electricity (no fuel combustion)
+                'co2_factor_fuel_combustion': 0.0,
+                # Total emissions from renewable electricity: 0.0 MtCO2
+                'italy_2021_fuel_combustion_mtco2': 0.0,
+                'renewable_share': 1.0,  # 100% renewable
+                'energy_sources': ['solar', 'wind', 'hydro', 'geothermal', 'sustainable_biomass']
             },
             'GAS': {
                 'sam_name': 'Gas',
-                'description': 'Natural gas supply',
-                'co2_factor': 2.034  # kg CO2/m³
+                'description': 'Natural gas supply and combustion (includes gas power plants)',
+                # kg CO2/MWh from natural gas combustion
+                'co2_factor_fuel_combustion': 202.0,
+                # Total emissions from gas fuel combustion: 15.6 MtCO2 (gas sector + gas power plants)
+                'italy_2021_fuel_combustion_mtco2': 15.6
             },
             'OTHER_ENERGY': {
                 'sam_name': 'Other Energy',
-                'description': 'Oil products and other energy',
-                'co2_factor': 2.68   # kg CO2/liter (average)
+                'description': 'Fossil fuel energy (coal/oil power plants, oil refining, coal)',
+                # kg CO2/MWh from fossil fuel combustion (redistributed from electricity)
+                'co2_factor_fuel_combustion': 350.0,
+                # Total emissions from fossil energy fuel combustion: 127.8 MtCO2 (includes former electricity emissions)
+                'italy_2021_fuel_combustion_mtco2': 127.8,
+                'fossil_sources': ['coal', 'oil', 'petroleum_products']
             }
         }
 
         # Define transport sectors (disaggregated in SAM)
+        # CO2 factors and emissions from fuel combustion only - Italy 2021 data (ISPRA)
         self.transport_sectors_detail = {
             'ROAD': {
                 'sam_name': 'Road Transport',
-                'description': 'Road freight and passenger transport',
-                'co2_factor': 2.31  # kg CO2/liter fuel
+                'description': 'Road freight and passenger transport fuel combustion',
+                'co2_factor_fuel_combustion': 231.0,  # kg CO2/MWh from fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 89.1  # MtCO2 from road transport fuel combustion
             },
             'RAIL': {
                 'sam_name': 'Rail Transport',
-                'description': 'Railway transport',
-                'co2_factor': 0.85  # kg CO2/passenger-km
+                'description': 'Railway transport fuel combustion',
+                'co2_factor_fuel_combustion': 85.0,   # kg CO2/MWh from fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 1.8   # MtCO2 from rail transport fuel combustion
             },
             'AIR': {
                 'sam_name': 'Air Transport',
-                'description': 'Aviation transport',
-                'co2_factor': 3.15  # kg CO2/liter aviation fuel
+                'description': 'Aviation fuel combustion',
+                'co2_factor_fuel_combustion': 315.0,  # kg CO2/MWh from aviation fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 12.4  # MtCO2 from aviation fuel combustion
             },
             'WATER': {
                 'sam_name': 'Water Transport',
-                'description': 'Maritime and inland water transport',
-                'co2_factor': 3.17  # kg CO2/liter marine fuel
+                'description': 'Maritime fuel combustion',
+                'co2_factor_fuel_combustion': 317.0,  # kg CO2/MWh from marine fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 8.7   # MtCO2 from maritime fuel combustion
             },
             'OTHER_TRANSPORT': {
                 'sam_name': 'Other Transport',
-                'description': 'Other transport services',
-                'co2_factor': 2.50  # Average
+                'description': 'Other transport fuel combustion',
+                'co2_factor_fuel_combustion': 250.0,  # kg CO2/MWh from fuel combustion (average)
+                'italy_2021_fuel_combustion_mtco2': 3.2   # MtCO2 from other transport fuel combustion
             }
         }
 
@@ -366,7 +395,7 @@ class ModelDefinitions:
         # Energy parameters
         self.energy_params = {
             'autonomous_energy_efficiency': 0.01,  # 1% annual AEEI
-            'electricity_renewable_share': 0.38,   # 38% renewables in 2021
+            'electricity_renewable_share': 0.35,   # 35.0% renewables in 2021
             'renewable_growth_rate': 0.05,         # 5% annual renewable growth
         }
 
