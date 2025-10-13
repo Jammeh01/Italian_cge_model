@@ -82,7 +82,7 @@ class ComprehensiveResultsGenerator:
         if not success:
             raise ValueError("Failed to solve base year calibration")
 
-        print("✓ Base year calibration completed successfully using IPOPT")
+        print("Base year calibration completed successfully using IPOPT")
         return True
 
     def generate_calibration_results(self):
@@ -151,10 +151,10 @@ class ComprehensiveResultsGenerator:
                 params_data = []
                 for key, value in calibrated_data['calibrated_parameters'].items():
                     params_data.append({'Parameter': key, 'Value': value})
-                pd.DataFrame(params_data).to_excel(
-                    writer, sheet_name='Parameters', index=False)
+            pd.DataFrame(params_data).to_excel(
+                writer, sheet_name='Parameters', index=False)
 
-        print(f"✓ Calibration results saved: {calibration_file}")
+        print(f"Calibration results saved: {calibration_file}")
         return calibration_file
 
     def run_scenario(self, year, scenario_name):
@@ -166,10 +166,10 @@ class ComprehensiveResultsGenerator:
         result = self.model.run_single_year(year, scenario_name)
 
         if not result:
-            print(f"✗ Failed to solve {scenario_name} scenario")
+            print(f"Failed to solve {scenario_name} scenario")
             return None
 
-        print(f"✓ {scenario_name} scenario solved successfully")
+        print(f"{scenario_name} scenario solved successfully")
 
         # Extract comprehensive results
         scenario_results = self.extract_detailed_results(year, scenario_name)
@@ -213,7 +213,7 @@ class ComprehensiveResultsGenerator:
         # 7. Additional calibration validation
         results['calibration_validation'] = self.validate_calibration_results()
 
-        print("✓ Base year endogenous outputs extracted successfully")
+        print("Base year endogenous outputs extracted successfully")
         return results
 
     def extract_sectoral_energy_demand(self):
@@ -985,7 +985,7 @@ class ComprehensiveResultsGenerator:
                     pd.DataFrame(sectoral_price_data).to_excel(
                         writer, sheet_name='Sectoral_Prices', index=False)
 
-        print(f"✓ Results saved: {filepath}")
+        print(f"Results saved: {filepath}")
         return filepath
 
     def generate_comparison_excel(self):
@@ -1057,7 +1057,7 @@ class ComprehensiveResultsGenerator:
                     pd.DataFrame(env_comparison).to_excel(
                         writer, sheet_name='Environmental_Comparison', index=False)
 
-        print(f"✓ Comparison results saved: {comparison_file}")
+        print(f"Comparison results saved: {comparison_file}")
         return comparison_file
 
     def generate_base_year_results_excel(self, results):
@@ -1278,7 +1278,7 @@ class ComprehensiveResultsGenerator:
                 df_validation = pd.DataFrame(validation_data)
                 df_validation.to_excel(writer, sheet_name='Calibration_Validation', index=False)
         
-        print(f"✓ Excel results file generated: {filepath}")
+        print(f"Excel results file generated: {filepath}")
         return filepath
 
     def run_base_year_calibration_and_generate_results(self):
@@ -1303,15 +1303,15 @@ class ComprehensiveResultsGenerator:
             print("\n" + "=" * 80)
             print("BASE YEAR CALIBRATION AND RESULTS GENERATION COMPLETED")
             print("=" * 80)
-            print(f"✓ Model calibrated to base year {model_definitions.base_year}")
-            print(f"✓ Results generated using IPOPT solver")
-            print(f"✓ Excel file saved: {excel_file}")
-            print(f"✓ Results folder: {self.results_dir.absolute()}")
+            print(f"Model calibrated to base year {model_definitions.base_year}")
+            print(f"Results generated using IPOPT solver")
+            print(f"Excel file saved: {excel_file}")
+            print(f"Results folder: {self.results_dir.absolute()}")
 
             return True, excel_file
 
         except Exception as e:
-            print(f"\n✗ Error in calibration and results generation: {str(e)}")
+            print(f"\nError in calibration and results generation: {str(e)}")
             import traceback
             traceback.print_exc()
             return False, None
@@ -1375,24 +1375,24 @@ def main():
     success, excel_file = generator.run_base_year_calibration_and_generate_results()
 
     if success:
-        print("\n🎉 BASE YEAR CALIBRATION COMPLETED SUCCESSFULLY!")
-        print("\n📊 GENERATED OUTPUTS:")
-        print("✓ Energy demand by sectors (MWh)")
-        print("✓ Energy demand by Italian macro-regional households (MWh)")
-        print("✓ Energy prices (EUR/MWh)")
-        print("✓ Sectoral outputs (EUR millions)")
-        print("✓ GDP (EUR millions)")
-        print("✓ CO2 emissions (MtCO2)")
-        print("\n📁 FILES CREATED:")
-        print(f"✓ Excel results file: {excel_file}")
-        print(f"✓ Results folder: {generator.results_dir.absolute()}")
-        print("\n🔧 TECHNICAL DETAILS:")
-        print("✓ Model solved using IPOPT optimizer")
-        print("✓ Calibrated to base year targets")
-        print("✓ All endogenous outputs extracted and validated")
+        print("\nBASE YEAR CALIBRATION COMPLETED SUCCESSFULLY!")
+        print("\nGENERATED OUTPUTS:")
+        print("Energy demand by sectors (MWh)")
+        print("Energy demand by Italian macro-regional households (MWh)")
+        print("Energy prices (EUR/MWh)")
+        print("Sectoral outputs (EUR millions)")
+        print("GDP (EUR millions)")
+        print("CO2 emissions (MtCO2)")
+        print("\nFILES CREATED:")
+        print(f"Excel results file: {excel_file}")
+        print(f"Results folder: {generator.results_dir.absolute()}")
+        print("\nTECHNICAL DETAILS:")
+        print("Model solved using IPOPT optimizer")
+        print("Calibrated to base year targets")
+        print("All endogenous outputs extracted and validated")
         
     else:
-        print("\n❌ BASE YEAR CALIBRATION FAILED")
+        print("\nBASE YEAR CALIBRATION FAILED")
         print("Please check the error messages above and ensure:")
         print("- SAM.xlsx file is available in the data folder")
         print("- IPOPT solver is properly installed")
