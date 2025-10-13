@@ -105,35 +105,35 @@ class ItalianCGEModel:
         print("Building Production Block...")
         self.blocks['production'] = ProductionBlock(
             self.model, self.calibrated_data)
-        print("✓ Production block created")
+        print("Production block created")
 
         print("Building Income & Expenditure Block...")
         self.blocks['income_expenditure'] = IncomeExpenditureBlock(
             self.model, self.calibrated_data)
-        print("✓ Income-expenditure block created")
+        print("Income-expenditure block created")
 
         print("Building Trade Block...")
         self.blocks['trade'] = TradeBlock(self.model, self.calibrated_data)
-        print("✓ Trade block created")
+        print("Trade block created")
 
         print("Building Energy & Environment Block...")
         self.blocks['energy_environment'] = EnergyEnvironmentBlock(
             self.model, self.calibrated_data)
-        print("✓ Energy-environment block created")
+        print("Energy-environment block created")
 
         print("Building Market Clearing & Closure Block...")
         self.blocks['market_clearing'] = MarketClearingClosureBlock(
             self.model, self.calibrated_data)
-        print("✓ Market clearing block created")
+        print("Market clearing block created")
 
         print("Building Macro Indicators Block...")
         self.blocks['macro_indicators'] = MacroIndicatorsBlock(
             self.model, self.calibrated_data)
-        print("✓ Macro indicators block created")
+        print("Macro indicators block created")
 
         print("")
         self.print_model_statistics()
-        print("✓ Model building completed successfully")
+        print("Model building completed successfully")
 
     def initialize_model(self, year=None, scenario='BAU'):
         """Initialize all model variables using calibrated data"""
@@ -182,7 +182,7 @@ class ItalianCGEModel:
             self.blocks['market_clearing'].apply_closure_rule(
                 'recursive_dynamic', year)
 
-        print("✓ Model initialization completed")
+        print("Model initialization completed")
 
         # Skip variable initialization for now - let's test basic solving first
         print("Skipping detailed variable initialization - using calibrated values")
@@ -196,7 +196,7 @@ class ItalianCGEModel:
         if hasattr(self.model, 'epsilon'):
             self.model.epsilon.set_value(1.0)
 
-        print("✓ Basic variable initialization completed")
+        print("Basic variable initialization completed")
 
     def initialize_variables_for_stability(self):
         """Initialize all variables with economically reasonable values for numerical stability"""
@@ -272,7 +272,7 @@ class ItalianCGEModel:
         if hasattr(self.model, 'C_G'):
             self.model.C_G.set_value(7000.0)  # Government consumption
 
-        print("✓ Variable initialization for stability completed")
+        print("Variable initialization for stability completed")
 
     def fix_model_structure(self):
         """Fix model structure issues that cause convergence problems"""
@@ -411,7 +411,7 @@ class ItalianCGEModel:
                     print(
                         f"    Scaled parameter {param.name}: {old_value} -> {param.value}")
 
-            print("✓ Comprehensive model structure fixes completed")
+            print("Comprehensive model structure fixes completed")
 
         except Exception as e:
             print(f"  Warning: Could not fix all structure issues: {e}")
@@ -512,7 +512,7 @@ class ItalianCGEModel:
         self.blocks['income_expenditure'].update_policy_parameters(
             scenario_name, year)
 
-        print(f"✓ Scenario parameters set for {scenario_name}")
+        print(f"Scenario parameters set for {scenario_name}")
 
     def solve_model(self, solver_name='ipopt', solver_options=None, max_iterations=5000):
         """Solve the CGE model with IPOPT"""
@@ -608,7 +608,7 @@ class ItalianCGEModel:
             if (self.solver_status == pyo.SolverStatus.ok and
                     solver_termination == pyo.TerminationCondition.optimal):
 
-                print("✓ Optimal solution found!")
+                print("Optimal solution found!")
 
                 # Load solution
                 self.model.solutions.load_from(results)
@@ -618,7 +618,7 @@ class ItalianCGEModel:
                     self.model)
 
                 if equilibrium_valid:
-                    print("✓ Equilibrium validation passed")
+                    print("Equilibrium validation passed")
                     self.solution = self.extract_solution()
                     return True
                 else:
@@ -636,7 +636,7 @@ class ItalianCGEModel:
                 return True
 
             else:
-                print(f"✗ Solver failed: {solver_termination}")
+                print(f"Solver failed: {solver_termination}")
 
                 # Try emergency simplification and retry
                 print("\nAttempting emergency model simplification and retry...")
@@ -674,20 +674,20 @@ class ItalianCGEModel:
                     if (emergency_status == pyo.SolverStatus.ok and
                             emergency_termination in [pyo.TerminationCondition.optimal, pyo.TerminationCondition.feasible]):
 
-                        print("✓ Emergency solve succeeded!")
+                        print("Emergency solve succeeded!")
                         self.model.solutions.load_from(emergency_results)
                         self.solution = self.extract_solution()
                         return True
                     else:
-                        print("✗ Emergency solve also failed")
+                        print("Emergency solve also failed")
                         return False
 
                 except Exception as emergency_e:
-                    print(f"✗ Emergency solve error: {str(emergency_e)}")
+                    print(f"Emergency solve error: {str(emergency_e)}")
                     return False
 
         except Exception as e:
-            print(f"✗ Solver error: {str(e)}")
+            print(f"Solver error: {str(e)}")
             return False
 
     def validate_model_structure(self):
@@ -731,7 +731,7 @@ class ItalianCGEModel:
                 print(f"  - {warning}")
             return False
         else:
-            print("✓ Model structure validation passed")
+            print("Model structure validation passed")
             return True
 
     def extract_solution(self):
@@ -767,7 +767,7 @@ class ItalianCGEModel:
                 'base_year_gdp': model_definitions.base_year_gdp
             }
 
-            print("✓ Solution extraction completed")
+            print("Solution extraction completed")
 
         except Exception as e:
             print(f"Error extracting solution: {e}")
@@ -796,7 +796,7 @@ class ItalianCGEModel:
         success = self.solve_model()
 
         if success:
-            print(f"✓ {scenario} scenario for {year} solved successfully")
+            print(f"{scenario} scenario for {year} solved successfully")
 
             # Store results
             self.yearly_results[f"{scenario}_{year}"] = self.solution
@@ -806,7 +806,7 @@ class ItalianCGEModel:
 
             return self.solution
         else:
-            print(f"✗ {scenario} scenario for {year} failed to solve")
+            print(f"{scenario} scenario for {year} failed to solve")
             return None
 
     def run_dynamic_scenario(self, scenario_name, start_year=None, end_year=None, save_results=True):
@@ -845,9 +845,9 @@ class ItalianCGEModel:
 
             if result:
                 scenario_results[year] = result
-                print(f"✓ Year {year} completed")
+                print(f"Year {year} completed")
             else:
-                print(f"✗ Year {year} failed - stopping simulation")
+                print(f"Year {year} failed - stopping simulation")
                 break
 
         # Save consolidated results
@@ -1008,8 +1008,8 @@ class ItalianCGEModel:
         with open(metadata_file, 'w') as f:
             json.dump(metadata, f, indent=2)
 
-        print(f"✓ Results saved: {filename}")
-        print(f"✓ Metadata saved: {metadata_file}")
+        print(f"Results saved: {filename}")
+        print(f"Metadata saved: {metadata_file}")
 
     def print_key_results(self, year, scenario):
         """Print key results for a solved year"""
@@ -1218,7 +1218,7 @@ class ItalianCGEModel:
         with open(report_filename, 'w') as f:
             f.write("\n".join(report_lines))
 
-        print(f"✓ Scenario report saved: {report_filename}")
+        print(f"Scenario report saved: {report_filename}")
 
         # Print to console
         for line in report_lines:
@@ -1251,34 +1251,34 @@ def test_italian_cge_model():
         result = model.run_single_year(2021, 'BAU')
 
         if result:
-            print("✓ Base year solve successful")
+            print("Base year solve successful")
 
             # Test ETS1 scenario (starts 2021 - same as base year)
             print("\nTesting ETS1 scenario...")
             result_ets1 = model.run_single_year(2021, 'ETS1')
 
             if result_ets1:
-                print("✓ ETS1 scenario test successful")
+                print("ETS1 scenario test successful")
 
                 # Test ETS2 scenario (starts 2027)
                 print("\nTesting ETS2 scenario...")
                 result_ets2 = model.run_single_year(2027, 'ETS2')
 
                 if result_ets2:
-                    print("✓ ETS2 scenario test successful")
+                    print("ETS2 scenario test successful")
                     return True
                 else:
-                    print("✗ ETS2 scenario test failed")
+                    print("ETS2 scenario test failed")
                     return False
             else:
-                print("✗ ETS1 scenario test failed")
+                print("ETS1 scenario test failed")
                 return False
         else:
-            print("✗ Base year solve failed")
+            print("Base year solve failed")
             return False
 
     except Exception as e:
-        print(f"✗ Model test failed: {str(e)}")
+        print(f"Model test failed: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -1293,12 +1293,12 @@ def main():
     success = test_italian_cge_model()
 
     if success:
-        print("\n✓ Italian CGE Model test completed successfully!")
+        print("\nItalian CGE Model test completed successfully!")
         print("\nThe model is ready for scenario analysis.")
         print("\nTo run full scenarios, use:")
         print("  python run_scenarios.py")
     else:
-        print("\n✗ Model test failed. Check error messages above.")
+        print("\nModel test failed. Check error messages above.")
 
 
 if __name__ == "__main__":
