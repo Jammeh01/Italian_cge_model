@@ -1,5 +1,5 @@
 """
-ENHANCED ITALIAN CGE MODEL - COMPREHENSIVE DYNAMIC SIMULATION (2021-2050)
+RECURSIVE DYNAMIC ITALIAN CGE MODEL - COMPREHENSIVE DYNAMIC SIMULATION (2021-2050)
 =========================================================================
 Recursive dynamic simulation using calibrated 2021 base from comprehensive_results_generator
 Generates all requested indicators with three scenarios: BAU, ETS1 (Industry), ETS2 (+Buildings & Transport)
@@ -34,6 +34,15 @@ except ImportError:
     IPOPT_AVAILABLE = False
     print("Warning: IPOPT not available, using analytical approximation")
 
+# Import calibration module to get base year data
+try:
+    from calibration import ComprehensiveResultsGenerator
+    CALIBRATION_AVAILABLE = True
+    print("Calibration module imported successfully - will use calibrated base year data")
+except ImportError:
+    CALIBRATION_AVAILABLE = False
+    print("Warning: Calibration module not available, using fallback base year data")
+
 
 class EnhancedItalianDynamicSimulation:
     """
@@ -41,13 +50,180 @@ class EnhancedItalianDynamicSimulation:
     Uses calibrated 2021 base year data from comprehensive_results_generator
     """
 
-    def __init__(self):
-        self.base_year = 2021
-        self.final_year = 2050
-        self.years = list(range(self.base_year, self.final_year + 1))
+    def run_calibration_and_extract_data(self):
+        """
+        Run the calibration module to get base year calibrated data
+        """
+        print("  Running calibration module to get base year data...")
+        try:
+            # Initialize the calibration module
+            calibration_generator = ComprehensiveResultsGenerator()
+            
+            # Run calibration and get results
+            success, excel_file = calibration_generator.run_base_year_calibration_and_generate_results()
+            
+            if success and calibration_generator.base_year_results:
+                print(f"  Calibration completed successfully")
+                print(f"  Excel results saved: {excel_file}")
+                return calibration_generator.base_year_results
+            else:
+                print("  Calibration failed, will use fallback data")
+                return None
+                
+        except Exception as e:
+            print(f"  Error in calibration: {str(e)}")
+            print("  Will use fallback base year data")
+            return None
 
-        # Base year data from calibrated 2021 Italian economy (comprehensive_results_generator output)
-        self.base_data = {
+    def initialize_base_data(self):
+        """
+        Initialize base data using calibrated results or fallback values
+        """
+        if self.calibrated_results is not None:
+            print("  Using calibrated base year data")
+            return self.extract_base_data_from_calibration()
+        else:
+            print("  Using fallback base year data")
+            return self.get_fallback_base_data()
+    
+    def extract_base_data_from_calibration(self):
+        """
+        Extract and format calibrated data into the structure expected by dynamic simulation
+        """
+        print("    Extracting data from calibration results...")
+        
+        # Start with fallback data structure and update with calibrated values
+        base_data = self.get_fallback_base_data()
+        
+        try:
+            # Update with calibrated data
+            calibrated = self.calibrated_results
+            
+            # Extract GDP data
+            if 'gdp_eur_millions' in calibrated:
+                gdp_data = calibrated['gdp_eur_millions']
+                if 'GDP_EUR_Billions' in gdp_data:
+                    base_data['gdp_total'] = gdp_data['GDP_EUR_Billions']
+                    print(f"    Updated GDP: €{base_data['gdp_total']:.1f} billion")
+            
+            # Extract sectoral value added
+            if 'sectoral_outputs_eur_millions' in calibrated:
+                sectoral_data = calibrated['sectoral_outputs_eur_millions']
+                # Map calibrated sectors to our aggregated sectors
+                sector_mapping = {
+                    'Agriculture': ['Agriculture'],
+                    'Industry': ['Industry'],
+                    'Energy': ['Electricity', 'Gas', 'Other Energy'],
+                    'Transport': ['Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport', 'Other Transport'],
+                    'Services': ['other Sectors (14)']
+                }
+                
+                for agg_sector, source_sectors in sector_mapping.items():
+                    total_va = 0
+                    for source_sector in source_sectors:
+                        sector_key = f'{source_sector}_EUR_Millions'
+                        if sector_key in sectoral_data:
+                            total_va += sectoral_data[sector_key] / 1000  # Convert to billions
+                    
+                    if total_va > 0:
+                        base_data['sectoral_value_added'][agg_sector] = total_va
+                        print(f"    Updated {agg_sector} VA: €{total_va:.1f} billion")
+            
+            # Extract energy demand data
+            if 'energy_demand_sectors_mwh' in calibrated:
+                energy_data = calibrated['energy_demand_sectors_mwh']
+                
+                # Update sectoral energy demand
+                for sector, carriers in base_data['energy_demand_sectoral'].items():
+                    for carrier in carriers:
+                        # Try to find matching data in calibrated results
+                        for cal_sector, cal_data in energy_data.items():
+                            if self.map_sector_name(sector, cal_sector):
+                                carrier_key = f'{carrier.title()}_MWh'
+                                if carrier_key in cal_data:
+                                    base_data['energy_demand_sectoral'][carrier][sector] = cal_data[carrier_key]
+                                    print(f"    Updated {sector} {carrier}: {cal_data[carrier_key]:,.0f} MWh")
+                                    break
+            
+            # Extract household energy demand
+            if 'energy_demand_households_mwh' in calibrated:
+                household_energy = calibrated['energy_demand_households_mwh']
+                
+                # Map regions and update household energy data
+                for region in base_data['household_energy_demand']['electricity'].keys():
+                    for carrier in ['electricity', 'gas', 'other_energy']:
+                        # Find corresponding data in calibrated results
+                        for cal_region, cal_data in household_energy.items():
+                            if self.map_region_name(region, cal_region):
+                                carrier_key = f'{carrier.title()}_MWh'
+                                if carrier_key in cal_data:
+                                    base_data['household_energy_demand'][carrier][region] = cal_data[carrier_key]
+                                    print(f"    Updated {region} household {carrier}: {cal_data[carrier_key]:,.0f} MWh")
+                                    break
+            
+            # Extract energy prices
+            if 'energy_prices_eur_per_mwh' in calibrated:
+                price_data = calibrated['energy_prices_eur_per_mwh']
+                for carrier in ['electricity', 'gas', 'other_energy']:
+                    price_key = f'{carrier.title()}_EUR_per_MWh'
+                    if price_key in price_data:
+                        base_data['energy_prices'][carrier] = price_data[price_key]
+                        print(f"    Updated {carrier} price: €{price_data[price_key]:.2f}/MWh")
+            
+            # Extract CO2 emissions
+            if 'co2_emissions_mtco2' in calibrated:
+                co2_data = calibrated['co2_emissions_mtco2']
+                if 'Total_CO2_Emissions_Fuel_Combustion_MtCO2' in co2_data:
+                    base_data['co2_emissions_total'] = co2_data['Total_CO2_Emissions_Fuel_Combustion_MtCO2']
+                    print(f"    Updated CO2 emissions: {base_data['co2_emissions_total']:.1f} MtCO2")
+            
+            print("    Base data extraction from calibration completed")
+            
+        except Exception as e:
+            print(f"    Error extracting calibrated data: {str(e)}")
+            print("    Using fallback data")
+            return self.get_fallback_base_data()
+        
+        return base_data
+
+    def map_sector_name(self, dynamic_sector, calibrated_sector):
+        """
+        Map sector names between dynamic simulation and calibration
+        """
+        sector_mapping = {
+            'Agriculture': 'Agriculture',
+            'Industry': 'Industry',
+            'Energy': ['Electricity', 'Gas', 'Other Energy'],
+            'Transport': ['Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport', 'Other Transport'],
+            'Services': 'other Sectors (14)'
+        }
+        
+        mapped = sector_mapping.get(dynamic_sector, dynamic_sector)
+        if isinstance(mapped, list):
+            return calibrated_sector in mapped
+        else:
+            return calibrated_sector == mapped
+
+    def map_region_name(self, dynamic_region, calibrated_region):
+        """
+        Map region names between dynamic simulation and calibration
+        """
+        # For now, assume direct mapping - can be enhanced if needed
+        region_mapping = {
+            'Northwest': 'Northwest',
+            'Northeast': 'Northeast', 
+            'Centre': 'Centre',
+            'South': 'South',
+            'Islands': 'Islands'
+        }
+        
+        return calibrated_region == region_mapping.get(dynamic_region, dynamic_region)
+    
+    def get_fallback_base_data(self):
+        """
+        Return fallback base data if calibration is not available
+        """
+        return {
             # Macroeconomy (from calibration results)
             'gdp_total': 1782.0,  # billion EUR - calibrated target
             'population': 59.13,   # million people
@@ -212,6 +388,26 @@ class EnhancedItalianDynamicSimulation:
                 'Islands': 1.2        # Wind and solar island grids
             }
         }
+
+    def __init__(self):
+        self.base_year = 2021
+        self.final_year = 2050
+        self.years = list(range(self.base_year, self.final_year + 1))
+
+        print("\n" + "="*70)
+        print("INITIALIZING ENHANCED ITALIAN DYNAMIC SIMULATION")
+        print("="*70)
+        print("Step 1: Running base year calibration...")
+        
+        # Run calibration and get base year data
+        self.calibrated_results = None
+        if CALIBRATION_AVAILABLE:
+            self.calibrated_results = self.run_calibration_and_extract_data()
+        
+        # Initialize base data (will be updated with calibrated results if available)
+        self.base_data = self.initialize_base_data()
+        
+        print("Step 2: Setting up simulation parameters...")
 
         # Policy and economic assumptions
         self.assumptions = {
@@ -411,9 +607,7 @@ class EnhancedItalianDynamicSimulation:
                         carbon_factor *= (1 + 0.0005 * carbon_price_ets1)  # Electricity demand increase
                 
                 return m.energy_sectoral[s, c] == (m.va_sectoral[s] / base_va) * base_energy * efficiency_factor * carbon_factor
-            model.energy_gdp_rel = pyo.Constraint(model.sectors, model.energy_carriers, rule=energy_gdp_relationship)
-            
-            # 5. Household energy-income relationship
+            model.energy_gdp_rel = pyo.Constraint(model.sectors, model.energy_carriers, rule=energy_gdp_relationship)            # 5. Household energy-income relationship
             def household_energy_income(m, r, c):
                 base_energy = self.base_data['household_energy_demand'][c][r]
                 base_income = self.base_data['household_income'][r]

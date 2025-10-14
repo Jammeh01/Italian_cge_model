@@ -66,3 +66,16 @@ The model generates comprehensive outputs including:
 - CO2 emissions trajectories (MtCo2)
 - Regional economic indicators
 - Policy impact assessments
+
+## Top-Down Formate
+
+recursive_dynamic_simulation.py
+    ↓ (imports)
+calibration.py
+    ↓ (imports)
+main_model.py
+    ↓ (imports)
+[All 6 Model Blocks]
+
+
+The model uses Pyomo (Python Optimization Modeling Objects) as the modeling framework, which interfaces with the IPOPT solver to find equilibrium solutions for the CGE model's variables and constraints.
