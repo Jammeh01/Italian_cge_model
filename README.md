@@ -1,11 +1,9 @@
-# Italian CGE Model
+# CGE-I5 Model
 
-A Computable General Equilibrium (CGE) model for Italy with dynamic simulation capabilities for economic and environmental policy analysis.
+A Computable General Equilibrium (CGE) model for Italy disaggregated into the five macro-regions (Northwest, Northeast, Centre, South, Islands) - designed to assess the macro-distributional and energy impacts of decarbonisation (economic, energy and environmental policies. 
+
 
 ## Overview
-
-This project implements a comprehensive CGE model for the Italian economy, featuring:
-
 - Multi-sector economic modeling
 - Dynamic simulation from 2021-2050
 - Environmental policy scenarios (ETS implementation)
@@ -16,19 +14,14 @@ This project implements a comprehensive CGE model for the Italian economy, featu
 
 ```
 italian_cge_model/
-├── src/                          # Core model source code
+├── src/                         # Core model source code
 │   ├── main_model.py            # Main CGE model implementation
 │   ├── dynamic_simulation_2021_2050.py  # Dynamic simulation engine
 │   ├── data_processor.py        # Data processing utilities
 │   ├── calibration_analyzer.py  # Model calibration tools
 │   └── results/                 # Generated results and outputs
-├── scenarios/                   # Policy scenario definitions
-│   ├── BAU_scenario.py         # Business as Usual scenario
-│   ├── ETS1_scenario.py        # ETS implementation scenario 1
-│   └── ETS2_scenario.py        # ETS implementation scenario 2
 ├── data/                       # Input data and SAM
-│   └── SAM.xlsx               # Social Accounting Matrix
-└── tests/                     # Test suite
+   └── SAM.xlsx                # Social Accounting Matrix
 
 ```
 
@@ -36,64 +29,17 @@ italian_cge_model/
 
 - **Dynamic CGE Model**: Multi-period optimization with forward-looking expectations
 - **Environmental Module**: CO2 emissions tracking and carbon pricing mechanisms
-- **Energy Sectors**: Detailed modeling of electricity, gas, and renewable energy
+- **Energy Sectors**: Detailed modeling of electricity (renewable), gas, and other energy
 - **Policy Analysis**: Support for ETS and other environmental policies
 - **Results Visualization**: Comprehensive output generation and analysis tools
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - Pyomo optimization framework
 - IPOPT solver (recommended)
 - Pandas, NumPy for data processing
 - Plotly for visualization
-
-## Installation
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/italian_cge_model.git
-cd italian_cge_model
-```
-
-2. Create and activate virtual environment:
-
-```bash
-python -m venv italian_cge_env
-# On Windows:
-italian_cge_env\Scripts\activate
-```
-
-3. Install dependencies:
-
-```bash
-pip install pyomo pandas numpy openpyxl plotly dash
-```
-
-## Usage
-
-### Running the Base Model
-
-```bash
-cd src
-python main_model.py
-```
-
-### Dynamic Simulation
-
-```bash
-cd src
-python dynamic_simulation_2021_2050.py
-```
-
-### Policy Scenario Analysis
-
-```bash
-cd scenarios
-python BAU_scenario.py
-python ETS1_scenario.py
-```
 
 ## Model Components
 
