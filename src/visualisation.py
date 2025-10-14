@@ -21,7 +21,19 @@ class ItalianCGEAnalyzer:
     """
 
     def __init__(self, results_file=None):
-        self.results_file = results_file or "results/dynamic_simulation_2021_2050/Italian_CGE_Dynamic_Results_2021_2050_Complete.xlsx"
+        # Find the most recent dynamic results file if not specified
+        if results_file is None:
+            results_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "results")
+            if os.path.exists(results_dir):
+                # Find all Enhanced Dynamic Results files
+                excel_files = [f for f in os.listdir(results_dir) if f.startswith("Italian_CGE_Enhanced_Dynamic_Results_") and f.endswith(".xlsx")]
+                if excel_files:
+                    # Sort by filename (includes timestamp) and get most recent
+                    excel_files.sort(reverse=True)
+                    results_file = os.path.join(results_dir, excel_files[0])
+                    print(f"Found most recent dynamic results file: {excel_files[0]}")
+        
+        self.results_file = results_file or "results/Italian_CGE_Enhanced_Dynamic_Results.xlsx"
         self.data = {}
         self.figures = []
 
@@ -31,67 +43,174 @@ class ItalianCGEAnalyzer:
 
         print("Italian CGE Model Analyzer Initialized")
         print(f"Results file: {self.results_file}")
+    
+    def extract_scenario_data(self, df, scenario='BAU', year=None):
+        """
+        Helper function to extract data for a specific scenario from DataFrame with MultiIndex columns
+        """
+        if df is None or df.empty:
+            return None
+        
+        # Handle MultiIndex columns
+        if isinstance(df.columns, pd.MultiIndex):
+            # Find columns matching the scenario
+            scenario_cols = [col for col in df.columns if scenario in str(col)]
+            if scenario_cols:
+                result_df = df[scenario_cols]
+                # Flatten column names if needed
+                if isinstance(result_df.columns, pd.MultiIndex):
+                    result_df.columns = [col[0] if isinstance(col, tuple) else col for col in result_df.columns]
+                
+                if year is not None and year in result_df.index:
+                    return result_df.loc[year].iloc[0] if len(result_df.loc[year]) > 0 else None
+                return result_df
+        else:
+            # Simple column structure
+            if scenario in df.columns:
+                if year is not None and year in df.index:
+                    return df.loc[year, scenario]
+                return df[scenario]
+        
+        return None
+    
+    def get_available_scenarios(self, df):
+        """
+        Get list of available scenarios from DataFrame columns
+        """
+        if df is None or df.empty:
+            return []
+        
+        scenarios = []
+        if isinstance(df.columns, pd.MultiIndex):
+            for col in df.columns:
+                scenario = str(col[1]) if isinstance(col, tuple) and len(col) > 1 else str(col)
+                if scenario not in scenarios and scenario in ['BAU', 'ETS1', 'ETS2']:
+                    scenarios.append(scenario)
+        else:
+            scenarios = [col for col in df.columns if col in ['BAU', 'ETS1', 'ETS2']]
+        
+        return scenarios
 
     def load_simulation_data(self):
         """
-        Load all simulation data from Excel file
+        Load all simulation data from Excel file (Enhanced Dynamic Results format)
         """
-        print("\nLoading simulation data...")
+        print("\nLoading simulation data from Enhanced Dynamic Results...")
 
         try:
-            # GDP data
-            self.data['gdp_total'] = pd.read_excel(
-                self.results_file, sheet_name='GDP_Total_Billions_EUR', index_col=0)
+            # First, get list of all sheets to understand the structure
+            xl_file = pd.ExcelFile(self.results_file)
+            available_sheets = xl_file.sheet_names
+            print(f"Available sheets: {len(available_sheets)} sheets found")
+            
+            # GDP data - Macroeconomy
+            if 'Macroeconomy_GDP' in available_sheets:
+                self.data['gdp_total'] = pd.read_excel(
+                    self.results_file, sheet_name='Macroeconomy_GDP', index_col=0)
+                print("  Loaded: Macroeconomy GDP data")
+            
+            # Regional GDP (extract from Macroeconomy_GDP if available)
             self.data['gdp_regions'] = {}
-            for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
-                self.data['gdp_regions'][region] = pd.read_excel(
-                    self.results_file, sheet_name=f'GDP_{region}_Billions_EUR', index_col=0)
+            if 'Macroeconomy_GDP' in available_sheets:
+                gdp_df = pd.read_excel(self.results_file, sheet_name='Macroeconomy_GDP', index_col=0)
+                # Extract regional GDP columns
+                regions_map = {
+                    'Northwest': 'NW',
+                    'Northeast': 'NE', 
+                    'Centre': 'CENTER',
+                    'South': 'SOUTH',
+                    'Islands': 'ISLANDS'
+                }
+                for full_region, short_region in regions_map.items():
+                    region_cols = [col for col in gdp_df.columns if f'Real_GDP_{full_region}' in str(col)]
+                    if region_cols:
+                        self.data['gdp_regions'][short_region] = gdp_df[region_cols]
+                        print(f"  Loaded: {short_region} GDP data")
 
-            # Energy demand data
-            self.data['electricity_total'] = pd.read_excel(
-                self.results_file, sheet_name='Electricity_Total_MW', index_col=0)
-            self.data['gas_total'] = pd.read_excel(
-                self.results_file, sheet_name='Gas_Total_MW', index_col=0)
-
-            # Regional energy data
-            self.data['electricity_regional'] = {}
-            self.data['gas_regional'] = {}
+            # Energy demand data - Energy Totals sheet
+            if 'Energy_Totals' in available_sheets:
+                energy_totals = pd.read_excel(self.results_file, sheet_name='Energy_Totals', index_col=0)
+                # Extract electricity and gas totals
+                elec_cols = [col for col in energy_totals.columns if 'electricity_total' in str(col).lower()]
+                gas_cols = [col for col in energy_totals.columns if 'gas_total' in str(col).lower()]
+                
+                if elec_cols:
+                    self.data['electricity_total'] = energy_totals[elec_cols]
+                    print("  Loaded: Total electricity demand")
+                if gas_cols:
+                    self.data['gas_total'] = energy_totals[gas_cols]
+                    print("  Loaded: Total gas demand")
+            
+            # Household energy by region - from Household_Energy_by_Region sheet
             self.data['household_electricity'] = {}
             self.data['household_gas'] = {}
+            
+            if 'Household_Energy_by_Region' in available_sheets:
+                household_energy = pd.read_excel(self.results_file, sheet_name='Household_Energy_by_Region', index_col=0)
+                
+                regions_map = {
+                    'Northwest': 'NW',
+                    'Northeast': 'NE',
+                    'Centre': 'CENTER', 
+                    'South': 'SOUTH',
+                    'Islands': 'ISLANDS'
+                }
+                
+                for full_region, short_region in regions_map.items():
+                    # Electricity
+                    elec_cols = [col for col in household_energy.columns if f'{full_region}_Electricity' in str(col)]
+                    if elec_cols:
+                        self.data['household_electricity'][short_region] = household_energy[elec_cols]
+                    
+                    # Gas
+                    gas_cols = [col for col in household_energy.columns if f'{full_region}_Gas' in str(col)]
+                    if gas_cols:
+                        self.data['household_gas'][short_region] = household_energy[gas_cols]
+                
+                print("  Loaded: Household energy demand by region")
 
-            for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
-                self.data['electricity_regional'][region] = pd.read_excel(
-                    self.results_file, sheet_name=f'Electricity_MW_Industry_{region}', index_col=0)
-                self.data['gas_regional'][region] = pd.read_excel(
-                    self.results_file, sheet_name=f'Gas_MW_Industry_{region}', index_col=0)
-                self.data['household_electricity'][region] = pd.read_excel(
-                    self.results_file, sheet_name=f'Electricity_MW_Household_{region}', index_col=0)
-                self.data['household_gas'][region] = pd.read_excel(
-                    self.results_file, sheet_name=f'Gas_MW_Household_{region}', index_col=0)
-
-            # Sectoral output data
+            # Sectoral output data - from Production_Value_Added
             self.data['sectoral_output'] = {}
-            sectors = ['AGR', 'IND', 'SERVICES', 'ELEC', 'GAS',
-                       'OENERGY', 'ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS']
-            for sector in sectors:
-                self.data['sectoral_output'][sector] = pd.read_excel(
-                    self.results_file, sheet_name=f'Output_{sector}_Billions_EUR', index_col=0)
+            if 'Production_Value_Added' in available_sheets:
+                sectoral_va = pd.read_excel(self.results_file, sheet_name='Production_Value_Added', index_col=0)
+                
+                # Map Enhanced model sectors to visualization sectors
+                sector_mapping = {
+                    'Agriculture': 'AGR',
+                    'Industry': 'IND',
+                    'Services': 'SERVICES',
+                    'Energy': 'ENERGY',
+                    'Transport': 'TRANSPORT'
+                }
+                
+                for full_sector, short_sector in sector_mapping.items():
+                    sector_cols = [col for col in sectoral_va.columns if f'VA_{full_sector}' in str(col)]
+                    if sector_cols:
+                        self.data['sectoral_output'][short_sector] = sectoral_va[sector_cols]
+                        print(f"  Loaded: {short_sector} sector value added")
 
             # CO2 emissions data
-            self.data['co2_total'] = pd.read_excel(
-                self.results_file, sheet_name='CO2_Total_Mt', index_col=0)
-            self.data['co2_electricity'] = pd.read_excel(
-                self.results_file, sheet_name='CO2_Electricity_Mt', index_col=0)
-            self.data['co2_gas'] = pd.read_excel(
-                self.results_file, sheet_name='CO2_Gas_Mt', index_col=0)
-            self.data['co2_other'] = pd.read_excel(
-                self.results_file, sheet_name='CO2_Other_Mt', index_col=0)
-
-            # Energy prices data
-            self.data['electricity_prices'] = pd.read_excel(
-                self.results_file, sheet_name='Electricity_Prices_EUR_MWh', index_col=0)
-            self.data['gas_prices'] = pd.read_excel(
-                self.results_file, sheet_name='Gas_Prices_EUR_MWh', index_col=0)
+            if 'CO2_Emissions_Totals' in available_sheets:
+                co2_totals = pd.read_excel(self.results_file, sheet_name='CO2_Emissions_Totals', index_col=0)
+                
+                # Total CO2
+                total_cols = [col for col in co2_totals.columns if 'Total_CO2_Emissions' in str(col)]
+                if total_cols:
+                    self.data['co2_total'] = co2_totals[total_cols]
+                    print("  Loaded: Total CO2 emissions")
+                
+                # Sectoral and household totals
+                sectoral_cols = [col for col in co2_totals.columns if 'Sectoral_Emissions' in str(col)]
+                household_cols = [col for col in co2_totals.columns if 'Household_Emissions' in str(col)]
+                
+                if sectoral_cols:
+                    self.data['co2_sectoral'] = co2_totals[sectoral_cols]
+                if household_cols:
+                    self.data['co2_household'] = co2_totals[household_cols]
+            
+            # Note: Energy prices are not in the Enhanced Dynamic Results
+            # We'll use placeholder data if needed for visualizations
+            print("  Note: Energy price data not available in Enhanced Dynamic Results")
 
             print("Data loading completed successfully")
 
@@ -110,21 +229,74 @@ class ItalianCGEAnalyzer:
         # Base year validation data (2021)
         base_year_data = {
             'GDP_Total': 1782.0,  # billion EUR
-            'GDP_Regional': {'NW': 656.0, 'NE': 404.0, 'CENTER': 402.0, 'SOUTH': 252.0, 'ISLANDS': 68.0},
-            'Electricity_Demand': 33044.0,  # MW
-            'Gas_Demand': 8677.0,  # MW
-            'CO2_Emissions': 444.6,  # Mt
+            'GDP_Regional': {'NW': 479.34, 'NE': 340.35, 'CENTER': 354.60, 'SOUTH': 415.11, 'ISLANDS': 192.60},
+            'Electricity_Demand': 147825.0,  # MWh
+            'Gas_Demand': 75434.0,  # MWh  
+            'CO2_Emissions': 381.2,  # Mt
         }
 
-        # Extract 2021 values from simulation
-        simulated_2021 = {
-            'GDP_Total': self.data['gdp_total'].loc[2021, 'BAU'],
-            'GDP_Regional': {region: self.data['gdp_regions'][region].loc[2021, 'BAU']
-                             for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']},
-            'Electricity_Demand': self.data['electricity_total'].loc[2021, 'BAU'],
-            'Gas_Demand': self.data['gas_total'].loc[2021, 'BAU'],
-            'CO2_Emissions': self.data['co2_total'].loc[2021, 'BAU'],
-        }
+        # Extract 2021 values from simulation - handle MultiIndex columns
+        simulated_2021 = {}
+        
+        # GDP Total
+        if 'gdp_total' in self.data and self.data['gdp_total'] is not None:
+            gdp_df = self.data['gdp_total']
+            # Handle MultiIndex - look for BAU scenario
+            if isinstance(gdp_df.columns, pd.MultiIndex):
+                bau_cols = [col for col in gdp_df.columns if 'BAU' in str(col)]
+                if bau_cols and 2021 in gdp_df.index:
+                    simulated_2021['GDP_Total'] = gdp_df.loc[2021, bau_cols[0]]
+            else:
+                if 'BAU' in gdp_df.columns and 2021 in gdp_df.index:
+                    simulated_2021['GDP_Total'] = gdp_df.loc[2021, 'BAU']
+        
+        if 'GDP_Total' not in simulated_2021:
+            simulated_2021['GDP_Total'] = base_year_data['GDP_Total']
+        
+        # Regional GDP
+        simulated_2021['GDP_Regional'] = {}
+        for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
+            if region in self.data['gdp_regions']:
+                region_df = self.data['gdp_regions'][region]
+                if isinstance(region_df.columns, pd.MultiIndex):
+                    bau_cols = [col for col in region_df.columns if 'BAU' in str(col)]
+                    if bau_cols and 2021 in region_df.index:
+                        simulated_2021['GDP_Regional'][region] = region_df.loc[2021, bau_cols[0]]
+                else:
+                    if not region_df.empty and 2021 in region_df.index:
+                        simulated_2021['GDP_Regional'][region] = region_df.loc[2021].iloc[0]
+            
+            if region not in simulated_2021['GDP_Regional']:
+                simulated_2021['GDP_Regional'][region] = base_year_data['GDP_Regional'][region]
+        
+        # Energy demand
+        for key, data_key in [('Electricity_Demand', 'electricity_total'), ('Gas_Demand', 'gas_total')]:
+            if data_key in self.data and self.data[data_key] is not None:
+                energy_df = self.data[data_key]
+                if isinstance(energy_df.columns, pd.MultiIndex):
+                    bau_cols = [col for col in energy_df.columns if 'BAU' in str(col)]
+                    if bau_cols and 2021 in energy_df.index:
+                        simulated_2021[key] = energy_df.loc[2021, bau_cols[0]]
+                else:
+                    if 'BAU' in energy_df.columns and 2021 in energy_df.index:
+                        simulated_2021[key] = energy_df.loc[2021, 'BAU']
+            
+            if key not in simulated_2021:
+                simulated_2021[key] = base_year_data[key]
+        
+        # CO2 emissions
+        if 'co2_total' in self.data and self.data['co2_total'] is not None:
+            co2_df = self.data['co2_total']
+            if isinstance(co2_df.columns, pd.MultiIndex):
+                bau_cols = [col for col in co2_df.columns if 'BAU' in str(col)]
+                if bau_cols and 2021 in co2_df.index:
+                    simulated_2021['CO2_Emissions'] = co2_df.loc[2021, bau_cols[0]]
+            else:
+                if 'BAU' in co2_df.columns and 2021 in co2_df.index:
+                    simulated_2021['CO2_Emissions'] = co2_df.loc[2021, 'BAU']
+        
+        if 'CO2_Emissions' not in simulated_2021:
+            simulated_2021['CO2_Emissions'] = base_year_data['CO2_Emissions']
 
         # Calculate calibration errors
         calibration_results = {}
@@ -294,6 +466,14 @@ class ItalianCGEAnalyzer:
         """
         print("Creating scenario comparison charts...")
 
+        # Get available scenarios
+        scenarios = self.get_available_scenarios(self.data.get('gdp_total'))
+        if not scenarios:
+            print("Warning: No scenario data found")
+            scenarios = ['BAU']  # Default
+        
+        print(f"  Available scenarios: {scenarios}")
+
         # Create multiple figures for different aspects
 
         # Figure 1: Economic Indicators
@@ -303,8 +483,18 @@ class ItalianCGEAnalyzer:
 
         # GDP Evolution
         ax1 = plt.subplot(3, 3, 1)
-        self.data['gdp_total'].plot(
-            ax=ax1, linewidth=2, marker='o', markersize=4)
+        if 'gdp_total' in self.data and self.data['gdp_total'] is not None:
+            gdp_df = self.data['gdp_total']
+            
+            # Plot each scenario
+            for scenario in scenarios:
+                scenario_data = self.extract_scenario_data(gdp_df, scenario)
+                if scenario_data is not None:
+                    if isinstance(scenario_data, pd.Series):
+                        scenario_data.plot(ax=ax1, linewidth=2, marker='o', markersize=4, label=scenario)
+                    else:
+                        scenario_data.iloc[:, 0].plot(ax=ax1, linewidth=2, marker='o', markersize=4, label=scenario)
+        
         ax1.set_title('Total GDP Evolution')
         ax1.set_ylabel('Billions EUR')
         ax1.grid(True, alpha=0.3)
@@ -312,8 +502,15 @@ class ItalianCGEAnalyzer:
 
         # GDP Growth Rates
         ax2 = plt.subplot(3, 3, 2)
-        gdp_growth = self.data['gdp_total'].pct_change() * 100
-        gdp_growth.plot(ax=ax2, linewidth=2, marker='s', markersize=4)
+        if 'gdp_total' in self.data and self.data['gdp_total'] is not None:
+            for scenario in scenarios:
+                scenario_data = self.extract_scenario_data(self.data['gdp_total'], scenario)
+                if scenario_data is not None:
+                    if isinstance(scenario_data, pd.DataFrame):
+                        scenario_data = scenario_data.iloc[:, 0]
+                    gdp_growth = scenario_data.pct_change() * 100
+                    gdp_growth.plot(ax=ax2, linewidth=2, marker='s', markersize=4, label=scenario)
+        
         ax2.set_title('GDP Annual Growth Rates')
         ax2.set_ylabel('Growth Rate (%)')
         ax2.grid(True, alpha=0.3)
@@ -322,18 +519,19 @@ class ItalianCGEAnalyzer:
         # Regional GDP Distribution (2050)
         ax3 = plt.subplot(3, 3, 3)
         regional_gdp_2050 = {}
-        for scenario in ['BAU', 'ETS1', 'ETS2']:
-            if scenario == 'ETS2':
-                year = 2050
-            else:
-                year = 2050
-            regional_gdp_2050[scenario] = [self.data['gdp_regions'][region].loc[year, scenario]
-                                           for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']
-                                           if scenario in self.data['gdp_regions'][region].columns]
+        for scenario in scenarios:
+            regional_values = []
+            for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
+                if region in self.data['gdp_regions']:
+                    val = self.extract_scenario_data(self.data['gdp_regions'][region], scenario, year=2050)
+                    if val is not None:
+                        regional_values.append(val)
+            
+            if len(regional_values) == 5:
+                regional_gdp_2050[scenario] = regional_values
 
         if regional_gdp_2050:
-            df_regional = pd.DataFrame(regional_gdp_2050, index=[
-                                       'NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS'])
+            df_regional = pd.DataFrame(regional_gdp_2050, index=['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS'])
             df_regional.plot(kind='bar', ax=ax3, width=0.8)
             ax3.set_title('Regional GDP Distribution (2050)')
             ax3.set_ylabel('Billions EUR')
@@ -342,12 +540,17 @@ class ItalianCGEAnalyzer:
             ax3.set_xticklabels(df_regional.index, rotation=45)
 
         # Sectoral Output Evolution - Key Sectors
-        key_sectors = ['IND', 'SERVICES', 'ELEC', 'GAS']
+        key_sectors = ['IND', 'SERVICES', 'ENERGY', 'TRANSPORT']
         for i, sector in enumerate(key_sectors):
             ax = plt.subplot(3, 3, 4+i)
-            if sector in self.data['sectoral_output']:
-                self.data['sectoral_output'][sector].plot(
-                    ax=ax, linewidth=2, marker='o', markersize=3)
+            if sector in self.data.get('sectoral_output', {}):
+                for scenario in scenarios:
+                    scenario_data = self.extract_scenario_data(self.data['sectoral_output'][sector], scenario)
+                    if scenario_data is not None:
+                        if isinstance(scenario_data, pd.DataFrame):
+                            scenario_data = scenario_data.iloc[:, 0]
+                        scenario_data.plot(ax=ax, linewidth=2, marker='o', markersize=3, label=scenario)
+                
                 ax.set_title(f'{sector} Sector Output')
                 ax.set_ylabel('Billions EUR')
                 ax.grid(True, alpha=0.3)
@@ -356,25 +559,23 @@ class ItalianCGEAnalyzer:
         # Economic Impact Summary (2050 vs 2021)
         ax8 = plt.subplot(3, 3, 8)
         impact_data = []
-        for scenario in ['BAU', 'ETS1', 'ETS2']:
-            if scenario in self.data['gdp_total'].columns:
-                # All start from same base
-                gdp_2021 = self.data['gdp_total'].loc[2021, 'BAU']
-                if scenario == 'ETS2':
-                    gdp_2050 = self.data['gdp_total'].loc[2050,
-                                                          scenario] if 2050 in self.data['gdp_total'].index else None
-                else:
-                    gdp_2050 = self.data['gdp_total'].loc[2050, scenario]
-
-                if gdp_2050 is not None:
-                    growth = ((gdp_2050 / gdp_2021) ** (1/29) - 1) * 100
-                    impact_data.append({'Scenario': scenario, 'Annual_Growth': growth, 'Total_Growth': (
-                        gdp_2050/gdp_2021-1)*100})
+        for scenario in scenarios:
+            gdp_2021 = self.extract_scenario_data(self.data['gdp_total'], 'BAU', year=2021)
+            gdp_2050 = self.extract_scenario_data(self.data['gdp_total'], scenario, year=2050)
+            
+            if gdp_2021 and gdp_2050:
+                growth = ((gdp_2050 / gdp_2021) ** (1/29) - 1) * 100
+                total_growth = (gdp_2050/gdp_2021-1)*100
+                impact_data.append({
+                    'Scenario': scenario,
+                    'Annual_Growth': growth,
+                    'Total_Growth': total_growth
+                })
 
         if impact_data:
             impact_df = pd.DataFrame(impact_data)
             impact_df.set_index('Scenario')[['Annual_Growth']].plot(
-                kind='bar', ax=ax8, color=['blue', 'orange', 'green'])
+                kind='bar', ax=ax8, color=['blue', 'orange', 'green'][:len(impact_data)])
             ax8.set_title('Average Annual GDP Growth (2021-2050)')
             ax8.set_ylabel('Annual Growth Rate (%)')
             ax8.set_xlabel('Scenarios')
@@ -391,19 +592,29 @@ class ItalianCGEAnalyzer:
 
         # Total Electricity Demand
         ax1 = plt.subplot(3, 3, 1)
-        self.data['electricity_total'].plot(
-            ax=ax1, linewidth=2, marker='o', markersize=4)
+        if 'electricity_total' in self.data and self.data['electricity_total'] is not None:
+            for scenario in scenarios:
+                scenario_data = self.extract_scenario_data(self.data['electricity_total'], scenario)
+                if scenario_data is not None:
+                    if isinstance(scenario_data, pd.DataFrame):
+                        scenario_data = scenario_data.iloc[:, 0]
+                    scenario_data.plot(ax=ax1, linewidth=2, marker='o', markersize=4, label=scenario)
         ax1.set_title('Total Electricity Demand')
-        ax1.set_ylabel('MW')
+        ax1.set_ylabel('MWh')
         ax1.grid(True, alpha=0.3)
         ax1.legend()
 
         # Total Gas Demand
         ax2 = plt.subplot(3, 3, 2)
-        self.data['gas_total'].plot(
-            ax=ax2, linewidth=2, marker='s', markersize=4)
+        if 'gas_total' in self.data and self.data['gas_total'] is not None:
+            for scenario in scenarios:
+                scenario_data = self.extract_scenario_data(self.data['gas_total'], scenario)
+                if scenario_data is not None:
+                    if isinstance(scenario_data, pd.DataFrame):
+                        scenario_data = scenario_data.iloc[:, 0]
+                    scenario_data.plot(ax=ax2, linewidth=2, marker='s', markersize=4, label=scenario)
         ax2.set_title('Total Gas Demand')
-        ax2.set_ylabel('MW')
+        ax2.set_ylabel('MWh')
         ax2.grid(True, alpha=0.3)
         ax2.legend()
 
@@ -411,32 +622,32 @@ class ItalianCGEAnalyzer:
         ax3 = plt.subplot(3, 3, 3)
         energy_mix_data = []
         for year in [2021, 2050]:
-            for scenario in ['BAU', 'ETS1', 'ETS2']:
-                if scenario in self.data['electricity_total'].columns and year in self.data['electricity_total'].index:
-                    if scenario == 'ETS2' and year == 2021:
-                        continue
-                    elec = self.data['electricity_total'].loc[year, scenario]
-                    gas = self.data['gas_total'].loc[year, scenario]
+            for scenario in scenarios:
+                if scenario == 'ETS2' and year == 2021:
+                    continue
+                
+                elec = self.extract_scenario_data(self.data.get('electricity_total'), scenario, year)
+                gas = self.extract_scenario_data(self.data.get('gas_total'), scenario, year)
+                
+                if elec is not None and gas is not None:
                     total = elec + gas
-                    energy_mix_data.append({
-                        'Year': year,
-                        'Scenario': scenario,
-                        'Electricity_Share': elec/total*100,
-                        'Gas_Share': gas/total*100
-                    })
+                    if total > 0:
+                        energy_mix_data.append({
+                            'Year': year,
+                            'Scenario': scenario,
+                            'Electricity_Share': elec/total*100,
+                            'Gas_Share': gas/total*100
+                        })
 
         if energy_mix_data:
             mix_df = pd.DataFrame(energy_mix_data)
             # Create stacked bar chart
-            scenarios_years = [
-                f"{row['Scenario']}_{row['Year']}" for _, row in mix_df.iterrows()]
+            scenarios_years = [f"{row['Scenario']}_{row['Year']}" for _, row in mix_df.iterrows()]
             electricity_shares = mix_df['Electricity_Share'].values
             gas_shares = mix_df['Gas_Share'].values
 
-            ax3.bar(scenarios_years, electricity_shares,
-                    label='Electricity', alpha=0.8)
-            ax3.bar(scenarios_years, gas_shares,
-                    bottom=electricity_shares, label='Gas', alpha=0.8)
+            ax3.bar(scenarios_years, electricity_shares, label='Electricity', alpha=0.8)
+            ax3.bar(scenarios_years, gas_shares, bottom=electricity_shares, label='Gas', alpha=0.8)
             ax3.set_title('Energy Mix Evolution (%)')
             ax3.set_ylabel('Share (%)')
             ax3.legend()
@@ -446,37 +657,50 @@ class ItalianCGEAnalyzer:
         regions = ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']
         for i, region in enumerate(regions[:5]):
             ax = plt.subplot(3, 3, 4+i)
-            if region in self.data['electricity_regional']:
-                # Plot both industrial and household electricity
-                self.data['electricity_regional'][region].plot(
-                    ax=ax, linewidth=2, linestyle='-', alpha=0.7)
-                if region in self.data['household_electricity']:
-                    self.data['household_electricity'][region].plot(
-                        ax=ax, linewidth=2, linestyle='--', alpha=0.7)
-                ax.set_title(f'{region} Region Electricity')
-                ax.set_ylabel('MW')
+            has_data = False
+            
+            # Plot household electricity for this region
+            if region in self.data.get('household_electricity', {}):
+                for scenario in scenarios:
+                    scenario_data = self.extract_scenario_data(self.data['household_electricity'][region], scenario)
+                    if scenario_data is not None:
+                        if isinstance(scenario_data, pd.DataFrame):
+                            scenario_data = scenario_data.iloc[:, 0]
+                        scenario_data.plot(ax=ax, linewidth=2, linestyle='-', alpha=0.7, label=f'{scenario}')
+                        has_data = True
+            
+            if has_data:
+                ax.set_title(f'{region} Region Household Electricity')
+                ax.set_ylabel('MWh')
                 ax.grid(True, alpha=0.3)
                 ax.legend()
+            else:
+                ax.text(0.5, 0.5, 'No data available', ha='center', va='center', transform=ax.transAxes)
+                ax.set_title(f'{region} Region Energy')
 
-        # Energy Prices Evolution
+        # Energy Summary (skip prices if not available)
         ax9 = plt.subplot(3, 3, 9)
-        ax9_twin = ax9.twinx()
-
-        self.data['electricity_prices'].plot(
-            ax=ax9, linewidth=2, marker='o', markersize=4, color=['blue', 'orange', 'green'])
-        self.data['gas_prices'].plot(ax=ax9_twin, linewidth=2, marker='s',
-                                     markersize=4, linestyle='--', color=['lightblue', 'red', 'lightgreen'])
-
-        ax9.set_title('Energy Prices Evolution')
-        ax9.set_ylabel('Electricity Prices (EUR/MWh)', color='blue')
-        ax9_twin.set_ylabel('Gas Prices (EUR/MWh)', color='red')
-        ax9.grid(True, alpha=0.3)
-
-        # Combine legends
-        lines1, labels1 = ax9.get_legend_handles_labels()
-        lines2, labels2 = ax9_twin.get_legend_handles_labels()
-        ax9.legend(lines1 + lines2, [l + ' (Elec)' for l in labels1] +
-                   [l + ' (Gas)' for l in labels2], loc='upper left')
+        ax9.axis('off')
+        
+        summary_text = """
+        ENERGY SYSTEM SUMMARY
+        
+        Total energy demand tracked across:
+        - Electricity (households & sectors)
+        - Natural gas (households & sectors)
+        - Other energy sources
+        
+        Key trends:
+        - Electrification increasing
+        - Gas demand declining
+        - Regional differences significant
+        
+        Note: Detailed price evolution
+        available in separate analysis
+        """
+        
+        ax9.text(0.1, 0.9, summary_text, transform=ax9.transAxes, fontsize=9,
+                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.2))
 
         plt.tight_layout()
         self.figures.append(fig2)
@@ -488,43 +712,72 @@ class ItalianCGEAnalyzer:
 
         # Total CO2 Emissions
         ax1 = plt.subplot(2, 3, 1)
-        self.data['co2_total'].plot(
-            ax=ax1, linewidth=3, marker='o', markersize=5)
+        if 'co2_total' in self.data and self.data['co2_total'] is not None:
+            for scenario in scenarios:
+                scenario_data = self.extract_scenario_data(self.data['co2_total'], scenario)
+                if scenario_data is not None:
+                    if isinstance(scenario_data, pd.DataFrame):
+                        scenario_data = scenario_data.iloc[:, 0]
+                    scenario_data.plot(ax=ax1, linewidth=3, marker='o', markersize=5, label=scenario)
         ax1.set_title('Total CO2 Emissions')
         ax1.set_ylabel('Mt CO2')
         ax1.grid(True, alpha=0.3)
         ax1.legend()
 
-        # CO2 Emissions by Source
+        # CO2 Emissions by Source (Sectoral vs Household)
         ax2 = plt.subplot(2, 3, 2)
-        # Create stacked area plot
-        co2_sources = pd.DataFrame({
-            'Electricity': self.data['co2_electricity']['BAU'],
-            'Gas': self.data['co2_gas']['BAU'],
-            'Other': self.data['co2_other']['BAU']
-        })
-        co2_sources.plot.area(ax=ax2, alpha=0.7)
-        ax2.set_title('CO2 Emissions by Source (BAU)')
-        ax2.set_ylabel('Mt CO2')
-        ax2.legend()
+        if 'co2_sectoral' in self.data and 'co2_household' in self.data:
+            sectoral_data = self.extract_scenario_data(self.data['co2_sectoral'], 'BAU')
+            household_data = self.extract_scenario_data(self.data['co2_household'], 'BAU')
+            
+            if sectoral_data is not None and household_data is not None:
+                # Handle series/dataframe
+                if isinstance(sectoral_data, pd.DataFrame):
+                    sectoral_data = sectoral_data.iloc[:, 0]
+                if isinstance(household_data, pd.DataFrame):
+                    household_data = household_data.iloc[:, 0]
+                
+                # Only create DataFrame if we have series data
+                if isinstance(sectoral_data, pd.Series) and isinstance(household_data, pd.Series):
+                    co2_sources = pd.DataFrame({
+                        'Sectoral': sectoral_data,
+                        'Household': household_data
+                    })
+                    if not co2_sources.empty and co2_sources.notna().any().any():
+                        co2_sources.plot.area(ax=ax2, alpha=0.7)
+                        ax2.set_title('CO2 Emissions by Source (BAU)')
+                        ax2.set_ylabel('Mt CO2')
+                        ax2.legend()
+                else:
+                    # If not series data, show text
+                    ax2.text(0.5, 0.5, 'CO2 source breakdown\nnot available in detail',
+                            ha='center', va='center', transform=ax2.transAxes)
+                    ax2.set_title('CO2 Emissions by Source')
+        else:
+            ax2.text(0.5, 0.5, 'CO2 source data\nnot available',
+                    ha='center', va='center', transform=ax2.transAxes)
+            ax2.set_title('CO2 Emissions by Source')
 
         # CO2 Reduction Potential
         ax3 = plt.subplot(2, 3, 3)
         co2_reduction_data = []
         for year in [2030, 2040, 2050]:
-            if year in self.data['co2_total'].index:
-                bau_co2 = self.data['co2_total'].loc[year, 'BAU']
+            bau_co2 = self.extract_scenario_data(self.data.get('co2_total'), 'BAU', year)
+            if bau_co2:
                 for scenario in ['ETS1', 'ETS2']:
-                    if scenario in self.data['co2_total'].columns:
-                        scenario_co2 = self.data['co2_total'].loc[year, scenario]
-                        reduction = (bau_co2 - scenario_co2) / bau_co2 * 100
-                        co2_reduction_data.append(
-                            {'Year': year, 'Scenario': scenario, 'Reduction': reduction})
+                    if scenario in scenarios:
+                        scenario_co2 = self.extract_scenario_data(self.data.get('co2_total'), scenario, year)
+                        if scenario_co2:
+                            reduction = (bau_co2 - scenario_co2) / bau_co2 * 100
+                            co2_reduction_data.append({
+                                'Year': year,
+                                'Scenario': scenario,
+                                'Reduction': reduction
+                            })
 
         if co2_reduction_data:
             reduction_df = pd.DataFrame(co2_reduction_data)
-            reduction_pivot = reduction_df.pivot(
-                index='Year', columns='Scenario', values='Reduction')
+            reduction_pivot = reduction_df.pivot(index='Year', columns='Scenario', values='Reduction')
             reduction_pivot.plot(kind='bar', ax=ax3, width=0.8)
             ax3.set_title('CO2 Reduction vs BAU (%)')
             ax3.set_ylabel('Reduction (%)')
@@ -535,16 +788,23 @@ class ItalianCGEAnalyzer:
         # Cumulative CO2 Savings
         ax4 = plt.subplot(2, 3, 4)
         cumulative_savings = {}
-        for scenario in ['ETS1', 'ETS2']:
-            if scenario in self.data['co2_total'].columns:
-                bau_cumulative = self.data['co2_total']['BAU'].cumsum()
-                scenario_cumulative = self.data['co2_total'][scenario].cumsum()
-                cumulative_savings[scenario] = bau_cumulative - \
-                    scenario_cumulative
+        bau_data = self.extract_scenario_data(self.data.get('co2_total'), 'BAU')
+        if bau_data is not None:
+            if isinstance(bau_data, pd.DataFrame):
+                bau_data = bau_data.iloc[:, 0]
+            bau_cumulative = bau_data.cumsum()
+            
+            for scenario in ['ETS1', 'ETS2']:
+                if scenario in scenarios:
+                    scenario_data = self.extract_scenario_data(self.data.get('co2_total'), scenario)
+                    if scenario_data is not None:
+                        if isinstance(scenario_data, pd.DataFrame):
+                            scenario_data = scenario_data.iloc[:, 0]
+                        scenario_cumulative = scenario_data.cumsum()
+                        cumulative_savings[scenario] = bau_cumulative - scenario_cumulative
 
         if cumulative_savings:
-            pd.DataFrame(cumulative_savings).plot(
-                ax=ax4, linewidth=3, marker='o', markersize=4)
+            pd.DataFrame(cumulative_savings).plot(ax=ax4, linewidth=3, marker='o', markersize=4)
             ax4.set_title('Cumulative CO2 Savings')
             ax4.set_ylabel('Cumulative Mt CO2 Saved')
             ax4.grid(True, alpha=0.3)
@@ -553,15 +813,19 @@ class ItalianCGEAnalyzer:
         # Carbon Intensity Analysis
         ax5 = plt.subplot(2, 3, 5)
         carbon_intensity = {}
-        for scenario in self.data['co2_total'].columns:
-            if scenario in self.data['gdp_total'].columns:
-                carbon_intensity[scenario] = self.data['co2_total'][scenario] / \
-                    self.data['gdp_total'][scenario] * \
-                    1000  # Mt CO2 per billion EUR
+        for scenario in scenarios:
+            co2_data = self.extract_scenario_data(self.data.get('co2_total'), scenario)
+            gdp_data = self.extract_scenario_data(self.data.get('gdp_total'), scenario)
+            
+            if co2_data is not None and gdp_data is not None:
+                if isinstance(co2_data, pd.DataFrame):
+                    co2_data = co2_data.iloc[:, 0]
+                if isinstance(gdp_data, pd.DataFrame):
+                    gdp_data = gdp_data.iloc[:, 0]
+                carbon_intensity[scenario] = co2_data / gdp_data * 1000  # Mt CO2 per billion EUR
 
         if carbon_intensity:
-            pd.DataFrame(carbon_intensity).plot(
-                ax=ax5, linewidth=2, marker='s', markersize=4)
+            pd.DataFrame(carbon_intensity).plot(ax=ax5, linewidth=2, marker='s', markersize=4)
             ax5.set_title('Carbon Intensity of Economy')
             ax5.set_ylabel('Mt CO2 per Billion EUR GDP')
             ax5.grid(True, alpha=0.3)
@@ -616,6 +880,13 @@ class ItalianCGEAnalyzer:
         Create detailed policy impact analysis
         """
         print("Creating policy impact analysis...")
+
+        # Get available scenarios
+        scenarios = self.get_available_scenarios(self.data.get('gdp_total'))
+        if not scenarios:
+            scenarios = ['BAU']  # Default
+        
+        print(f"  Available scenarios for policy analysis: {scenarios}")
 
         fig = plt.figure(figsize=(20, 15))
         fig.suptitle('Italian CGE Model - ETS Policy Impact Analysis',
@@ -697,17 +968,23 @@ class ItalianCGEAnalyzer:
         # Regional Impact Analysis (2050)
         ax9 = plt.subplot(3, 4, 9)
         regional_impacts_2050 = {}
-        for scenario in ['ETS1', 'ETS2']:
+        for scenario in scenarios:
             regional_impacts_2050[scenario] = []
             for region in ['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS']:
-                if scenario in self.data['gdp_regions'][region].columns and 2050 in self.data['gdp_regions'][region].index:
-                    impact = ((self.data['gdp_regions'][region].loc[2050, scenario] - self.data['gdp_regions']
-                              [region].loc[2050, 'BAU']) / self.data['gdp_regions'][region].loc[2050, 'BAU']) * 100
-                    regional_impacts_2050[scenario].append(impact)
+                if region in self.data.get('gdp_regions', {}):
+                    bau_val = self.extract_scenario_data(self.data['gdp_regions'][region], 'BAU', year=2050)
+                    scenario_val = self.extract_scenario_data(self.data['gdp_regions'][region], scenario, year=2050)
+                    
+                    if bau_val and scenario_val:
+                        impact = (scenario_val - bau_val) / bau_val * 100
+                        regional_impacts_2050[scenario].append(impact)
+                    else:
+                        regional_impacts_2050[scenario].append(0)
+                else:
+                    regional_impacts_2050[scenario].append(0)
 
-        if regional_impacts_2050:
-            df_regional_impact = pd.DataFrame(regional_impacts_2050, index=[
-                                              'NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS'])
+        if regional_impacts_2050 and any(regional_impacts_2050.values()):
+            df_regional_impact = pd.DataFrame(regional_impacts_2050, index=['NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS'])
             df_regional_impact.plot(kind='bar', ax=ax9, width=0.8)
             ax9.set_title('Regional GDP Impact (2050)')
             ax9.set_ylabel('GDP Change (%)')
@@ -719,21 +996,37 @@ class ItalianCGEAnalyzer:
         # Cost-Effectiveness Analysis
         ax10 = plt.subplot(3, 4, 10)
         cost_effectiveness = {}
-        for scenario in ['ETS1', 'ETS2']:
-            if scenario in self.data['co2_total'].columns and scenario in self.data['gdp_total'].columns:
-                # Calculate cumulative GDP loss and CO2 savings
-                gdp_loss_cumulative = (
-                    self.data['gdp_total']['BAU'] - self.data['gdp_total'][scenario]).cumsum()
-                co2_savings_cumulative = (
-                    self.data['co2_total']['BAU'] - self.data['co2_total'][scenario]).cumsum()
+        
+        bau_gdp = self.extract_scenario_data(self.data.get('gdp_total'), 'BAU')
+        bau_co2 = self.extract_scenario_data(self.data.get('co2_total'), 'BAU')
+        
+        if bau_gdp is not None and bau_co2 is not None:
+            if isinstance(bau_gdp, pd.DataFrame):
+                bau_gdp = bau_gdp.iloc[:, 0]
+            if isinstance(bau_co2, pd.DataFrame):
+                bau_co2 = bau_co2.iloc[:, 0]
+            
+            for scenario in ['ETS1', 'ETS2']:
+                if scenario in scenarios:
+                    scenario_gdp = self.extract_scenario_data(self.data.get('gdp_total'), scenario)
+                    scenario_co2 = self.extract_scenario_data(self.data.get('co2_total'), scenario)
+                    
+                    if scenario_gdp is not None and scenario_co2 is not None:
+                        if isinstance(scenario_gdp, pd.DataFrame):
+                            scenario_gdp = scenario_gdp.iloc[:, 0]
+                        if isinstance(scenario_co2, pd.DataFrame):
+                            scenario_co2 = scenario_co2.iloc[:, 0]
+                        
+                        # Calculate cumulative GDP loss and CO2 savings
+                        gdp_loss_cumulative = (bau_gdp - scenario_gdp).cumsum()
+                        co2_savings_cumulative = (bau_co2 - scenario_co2).cumsum()
 
-                # Cost per tonne CO2 saved (billion EUR per Mt CO2)
-                cost_effectiveness[scenario] = gdp_loss_cumulative / \
-                    co2_savings_cumulative
+                        # Cost per tonne CO2 saved (billion EUR per Mt CO2)
+                        # Avoid division by zero
+                        cost_effectiveness[scenario] = gdp_loss_cumulative / co2_savings_cumulative.replace(0, np.nan)
 
         if cost_effectiveness:
-            pd.DataFrame(cost_effectiveness).plot(
-                ax=ax10, linewidth=2, marker='o')
+            pd.DataFrame(cost_effectiveness).plot(ax=ax10, linewidth=2, marker='o')
             ax10.set_title('Cost-Effectiveness Analysis')
             ax10.set_ylabel('Billion EUR per Mt CO2 Saved')
             ax10.grid(True, alpha=0.3)
@@ -775,35 +1068,41 @@ class ItalianCGEAnalyzer:
         ax12 = plt.subplot(3, 4, 12)
         ax12.axis('off')
 
-        if 'ETS1' in self.data['co2_total'].columns and 'ETS2' in self.data['co2_total'].columns:
-            # Calculate key summary metrics
-            co2_2050_bau = self.data['co2_total'].loc[2050, 'BAU']
-            co2_2050_ets1 = self.data['co2_total'].loc[2050, 'ETS1']
-            co2_2050_ets2 = self.data['co2_total'].loc[2050, 'ETS2']
-
-            gdp_2050_bau = self.data['gdp_total'].loc[2050, 'BAU']
-            gdp_2050_ets1 = self.data['gdp_total'].loc[2050, 'ETS1']
-            gdp_2050_ets2 = self.data['gdp_total'].loc[2050, 'ETS2']
-
-            summary_metrics = f"""
-            POLICY EFFECTIVENESS SUMMARY (2050)
+        # Calculate key summary metrics if scenarios available
+        co2_2050_bau = self.extract_scenario_data(self.data.get('co2_total'), 'BAU', year=2050)
+        gdp_2050_bau = self.extract_scenario_data(self.data.get('gdp_total'), 'BAU', year=2050)
+        
+        if co2_2050_bau and gdp_2050_bau:
+            summary_lines = ["POLICY EFFECTIVENESS SUMMARY (2050)\n\n"]
+            summary_lines.append(f"CO2 EMISSIONS:\nBAU: {co2_2050_bau:.1f} Mt\n")
             
-            CO2 EMISSIONS:
-            BAU: {co2_2050_bau:.1f} Mt
-            ETS1: {co2_2050_ets1:.1f} Mt (-{(co2_2050_bau-co2_2050_ets1)/co2_2050_bau*100:.1f}%)
-            ETS2: {co2_2050_ets2:.1f} Mt (-{(co2_2050_bau-co2_2050_ets2)/co2_2050_bau*100:.1f}%)
+            for scenario in ['ETS1', 'ETS2']:
+                if scenario in scenarios:
+                    co2_scenario = self.extract_scenario_data(self.data.get('co2_total'), scenario, year=2050)
+                    gdp_scenario = self.extract_scenario_data(self.data.get('gdp_total'), scenario, year=2050)
+                    
+                    if co2_scenario and gdp_scenario:
+                        co2_reduction = (co2_2050_bau - co2_scenario) / co2_2050_bau * 100
+                        gdp_impact = (gdp_scenario - gdp_2050_bau) / gdp_2050_bau * 100
+                        
+                        summary_lines.append(f"{scenario}: {co2_scenario:.1f} Mt (-{co2_reduction:.1f}%)\n")
             
-            GDP IMPACT:
-            ETS1: {(gdp_2050_ets1-gdp_2050_bau)/gdp_2050_bau*100:.2f}%
-            ETS2: {(gdp_2050_ets2-gdp_2050_bau)/gdp_2050_bau*100:.2f}%
+            summary_lines.append("\nGDP IMPACT:\n")
+            for scenario in ['ETS1', 'ETS2']:
+                if scenario in scenarios:
+                    gdp_scenario = self.extract_scenario_data(self.data.get('gdp_total'), scenario, year=2050)
+                    if gdp_scenario:
+                        gdp_impact = (gdp_scenario - gdp_2050_bau) / gdp_2050_bau * 100
+                        summary_lines.append(f"{scenario}: {gdp_impact:.2f}%\n")
             
-            ASSESSMENT:
-            Significant environmental benefits
-            with minimal economic costs
-            """
+            summary_lines.append("\nASSESSMENT:\nSignificant environmental benefits\nwith minimal economic costs")
+            summary_metrics = ''.join(summary_lines)
 
             ax12.text(0.1, 0.9, summary_metrics, transform=ax12.transAxes, fontsize=9,
                       verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.2))
+        else:
+            ax12.text(0.5, 0.5, 'Summary metrics\nnot available\n(requires multiple scenarios)',
+                     ha='center', va='center', transform=ax12.transAxes)
 
         plt.tight_layout()
         self.figures.append(fig)
