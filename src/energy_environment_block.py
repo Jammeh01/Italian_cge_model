@@ -116,7 +116,8 @@ class EnergyEnvironmentBlock:
         # Carbon price by policy (€/tCO2e) - Updated for EU ETS specifications
         self.model.carbon_price_ets1 = pyo.Var(
             domain=pyo.NonNegativeReals,
-            bounds=(0.0, 300.0),  # No formal cap - MSR manages supply (practical upper bound)
+            # No formal cap - MSR manages supply (practical upper bound)
+            bounds=(0.0, 300.0),
             initialize=53.90,     # €53.90/tCO2e starting price in 2021
             doc="ETS1 carbon price (€/tCO2e) - EU ETS Phase 4"
         )
@@ -125,7 +126,8 @@ class EnergyEnvironmentBlock:
         # Use flexible bounds that allow 0.0 for years before 2027
         self.model.carbon_price_ets2 = pyo.Var(
             domain=pyo.NonNegativeReals,
-            bounds=(0.0, 45.0),   # Allow 0.0 before 2027, then Price Stability Mechanism ceiling €45/tCO2e
+            # Allow 0.0 before 2027, then Price Stability Mechanism ceiling €45/tCO2e
+            bounds=(0.0, 45.0),
             initialize=0.0,       # Start at 0.0, will be set to proper value when ETS2 is active
             doc="ETS2 carbon price (€/tCO2e) - EU ETS for buildings and transport (starts 2027)"
         )
@@ -196,14 +198,19 @@ class EnergyEnvironmentBlock:
         # CO2 emission factors by energy type from fuel combustion (for MWh annual consumption)
         def get_co2_factor(model, es):
             # Based on actual Italian fuel combustion emission factors - Italy 2021 data
-            # Source: ISPRA (Italian Institute for Environmental Protection and Research)
-            # NOTE: Electricity represents RENEWABLE energy sources (solar, wind, hydro, geothermal, biomass)
+            # Source: ISPRA, IEA (Italian Institute for Environmental Protection and Research)
+            # NOTE: Electricity reflects Italy's actual grid mix (~35% renewable, ~65% fossil fuels)
+            # Grid average: 0.312 tCO2/MWh = 312 kg CO2/MWh (2021 data)
             co2_factors_fuel_combustion = {
-                'Electricity': 0.0,     # kg CO2/MWh from RENEWABLE electricity (no fuel combustion)
-                'Gas': 202.0,          # kg CO2/MWh from natural gas combustion (includes gas power plants)
-                'Other Energy': 350.0  # kg CO2/MWh from fossil fuel combustion (coal/oil power plants, oil refining)
+                # kg CO2/MWh from grid electricity (mix of renewable + fossil: 55.9% gas, 35% renewable, 5.3% coal, 3.8% oil)
+                'Electricity': 312.0,
+                # kg CO2/MWh from natural gas combustion (for heating, industrial processes)
+                'Gas': 202.0,
+                # kg CO2/MWh from fossil fuel combustion (oil products for transport, oil refining)
+                'Other Energy': 350.0
             }
-            return co2_factors_fuel_combustion.get(es, 250.0)  # Default average fuel combustion factor
+            # Default average fuel combustion factor
+            return co2_factors_fuel_combustion.get(es, 250.0)
 
         self.model.co2_fac = pyo.Param(
             self.energy_sectors,
@@ -338,11 +345,26 @@ class EnergyEnvironmentBlock:
         def emissions_by_user_rule(model, user):
             """CO2 emissions from fuel combustion by user (sectors and households)"""
             # Calculate CO2 emissions from energy consumption using fuel combustion emission factors
-            # Convert from kg CO2 to appropriate model units (typically scaled for solver efficiency)
-            fuel_combustion_emissions = sum(
-                model.Energy_demand[es, user] * model.co2_fac[es] * 0.001  # Convert kg to tonnes
-                for es in self.energy_sectors
-            )
+            # For electricity, adjust emission factor based on renewable share
+            # As renewable share increases, electricity emissions decrease
+            fuel_combustion_emissions = 0
+
+            for es in self.energy_sectors:
+                if es == 'Electricity':
+                    # Dynamic electricity emission factor based on renewable share
+                    # Base grid factor: 312 kg CO2/MWh (2021 mix)
+                    # As renewable share increases, emissions from electricity decrease
+                    # Formula: base_factor * (1 - renewable_share)
+                    base_elec_factor = 312.0  # kg CO2/MWh for 2021 mix
+                    effective_elec_factor = base_elec_factor * \
+                        (1 - model.Renewable_share)
+                    fuel_combustion_emissions += model.Energy_demand[es,
+                                                                     user] * effective_elec_factor * 0.001
+                else:
+                    # For gas and other energy, use fixed emission factors
+                    fuel_combustion_emissions += model.Energy_demand[es,
+                                                                     user] * model.co2_fac[es] * 0.001
+
             return model.EM[user] == fuel_combustion_emissions
 
         self.model.eq_emissions_by_user = pyo.Constraint(
@@ -436,23 +458,49 @@ class EnergyEnvironmentBlock:
         """Energy and environmental indicators"""
 
         def renewable_share_rule(model):
-            """Renewable share in electricity generation"""
-            # NOTE: Electricity sector represents 100% renewable energy in this model
-            total_electricity = model.TOT_Energy['Electricity']
+            """Renewable share in electricity generation - ENDOGENOUS based on cumulative investment"""
+            # Italy 2021: 35% renewable electricity (hydro, wind, solar, geothermal, biomass)
+            # Remaining 65% from fossil fuels (55.9% gas, 5.3% coal, 3.8% oil)
 
-            # All electricity is renewable (solar, wind, hydro, geothermal, biomass)
-            renewable_share_2021 = 1.0  # 100% renewable electricity in model representation
-            growth_years = max(0, self.current_year -
-                               model_definitions.base_year)
+            # Base renewable share from Italy 2021 data
+            renewable_share_2021 = 0.35  # 35% renewable electricity in 2021
 
-            # Renewable share remains at 100% since electricity sector = renewables
-            target_share = 1.0
+            # Get cumulative renewable capacity from recursive dynamic tracker
+            # This makes renewable share ENDOGENOUS - it depends on investment decisions
+            # driven by carbon pricing policies (BAU has no boost, ETS1 has 20% boost, ETS2 has 40% boost)
+            if hasattr(model, 'cumulative_renewable_capacity'):
+                # Use cumulative capacity to calculate renewable share
+                # Base capacity in 2021: ~60 GW renewable capacity = 35% share
+                base_capacity_gw = 60.0  # Italy's 2021 renewable capacity (GW)
+                current_capacity_gw = model.cumulative_renewable_capacity.value
+
+                # Renewable share increases with capacity
+                # Assuming Italy has ~171 GW total capacity in 2021
+                # Total grows with additions
+                total_capacity_gw = 171.0 + \
+                    (current_capacity_gw - base_capacity_gw)
+                capacity_based_share = current_capacity_gw / total_capacity_gw
+
+                # Constrain to realistic bounds
+                target_share = max(renewable_share_2021,
+                                   min(0.98, capacity_based_share))
+            else:
+                # Fallback for base year or if capacity tracking not initialized
+                growth_years = max(0, self.current_year -
+                                   model_definitions.base_year)
+
+                # Minimal baseline growth without policy intervention (BAU without investment boost)
+                # Natural replacement: 1% per year growth
+                # 1 percentage point per year (slower than before)
+                baseline_growth = 0.01
+                target_share = min(0.60, renewable_share_2021 +
+                                   (baseline_growth * growth_years))
 
             return model.Renewable_share == target_share
 
         self.model.eq_renewable_share = pyo.Constraint(
             rule=renewable_share_rule,
-            doc="Renewable energy share"
+            doc="Renewable energy share - endogenous based on investment"
         )
 
     def update_policy_parameters(self, year, scenario_name):
@@ -468,25 +516,31 @@ class EnergyEnvironmentBlock:
 
         elif scenario_name == 'ETS1':
             # EU ETS Phase 4 active (starts 2021), ETS2 not yet active (starts 2027)
-            ets1_price = model_definitions.get_carbon_price(year, 'ETS1')  # €53.90/tCO2e in 2021
+            ets1_price = model_definitions.get_carbon_price(
+                year, 'ETS1')  # €53.90/tCO2e in 2021
             self.model.carbon_price_ets1.fix(ets1_price)
             self.model.carbon_price_ets2.fix(0.0)
 
             # Update free allocation rate for ETS1
-            ets1_free_rate = model_definitions.get_free_allocation_rate(year, 'ETS1')
+            ets1_free_rate = model_definitions.get_free_allocation_rate(
+                year, 'ETS1')
             self.model.free_alloc_ets1.set_value(ets1_free_rate)
 
         elif scenario_name == 'ETS2':
             # Both EU ETS Phase 4 (ETS1) and EU ETS for buildings/transport (ETS2) active
-            ets1_price = model_definitions.get_carbon_price(year, 'ETS1')  # No price ceiling (MSR managed)
-            ets2_price = model_definitions.get_carbon_price(year, 'ETS2')  # €45.0/tCO2e ceiling (PSM)
+            ets1_price = model_definitions.get_carbon_price(
+                year, 'ETS1')  # No price ceiling (MSR managed)
+            ets2_price = model_definitions.get_carbon_price(
+                year, 'ETS2')  # €45.0/tCO2e ceiling (PSM)
 
             self.model.carbon_price_ets1.fix(ets1_price)
             self.model.carbon_price_ets2.fix(ets2_price)
 
             # Update free allocation rates for both systems
-            ets1_free_rate = model_definitions.get_free_allocation_rate(year, 'ETS1')
-            ets2_free_rate = model_definitions.get_free_allocation_rate(year, 'ETS2')
+            ets1_free_rate = model_definitions.get_free_allocation_rate(
+                year, 'ETS1')
+            ets2_free_rate = model_definitions.get_free_allocation_rate(
+                year, 'ETS2')
 
             self.model.free_alloc_ets1.set_value(ets1_free_rate)
             self.model.free_alloc_ets2.set_value(ets2_free_rate)
@@ -509,14 +563,17 @@ class EnergyEnvironmentBlock:
 
             # Cumulative efficiency improvement
             cumulative_aeei = 1 - (1 - enhanced_aeei) ** years_elapsed
-            self.model.aeei[j].set_value(min(0.5, cumulative_aeei))  # Cap at 50%
+            self.model.aeei[j].set_value(
+                min(0.5, cumulative_aeei))  # Cap at 50%
 
         print(f"Updated EU ETS parameters for {scenario_name} in {year}:")
         if scenario_name != 'BAU':
             if 'ets1_price' in locals():
-                print(f"  EU ETS Phase 4 (ETS1) price: €{ets1_price:.2f}/tCO2e")
+                print(
+                    f"  EU ETS Phase 4 (ETS1) price: €{ets1_price:.2f}/tCO2e")
             if 'ets2_price' in locals() and year >= 2027:
-                print(f"  EU ETS Buildings/Transport (ETS2) price: €{ets2_price:.2f}/tCO2e")
+                print(
+                    f"  EU ETS Buildings/Transport (ETS2) price: €{ets2_price:.2f}/tCO2e")
             if 'ets1_free_rate' in locals():
                 print(f"  ETS1 free allocation: {ets1_free_rate:.1%}")
             if 'ets2_free_rate' in locals() and year >= 2027:
@@ -602,8 +659,17 @@ class EnergyEnvironmentBlock:
         for j in self.sectors:
             self.model.aeei[j].set_value(base_aeei)
 
-        # Initialize renewable share
-        self.model.Renewable_share.set_value(1.0)  # 100% renewable electricity (model definition)
+        # Initialize renewable share (Italy 2021: 35% renewable electricity)
+        # 35% renewable electricity (2021 actual data)
+        self.model.Renewable_share.set_value(0.35)
+
+        # Initialize cumulative renewable capacity parameter (GW)
+        # Italy 2021 baseline: ~60 GW renewable capacity (35% of 171 GW total)
+        if not hasattr(self.model, 'cumulative_renewable_capacity'):
+            self.model.cumulative_renewable_capacity = pyo.Param(
+                initialize=60.0, mutable=True)
+        else:
+            self.model.cumulative_renewable_capacity.set_value(60.0)
 
         print("Energy-environment variables initialization completed")
 

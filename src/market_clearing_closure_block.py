@@ -41,8 +41,9 @@ class MarketClearingClosureBlock:
                                for j in self.sectors) / 1000
             # More flexible bounds to accommodate capital stock growth
             if f == 'Capital':
-                # Very flexible bounds for capital stock to handle multi-year growth
-                return (total_demand * 0.1, total_demand * 10.0)
+                # Very flexible bounds for capital stock to handle multi-year growth (2021-2050)
+                # Base 2021 capital ~118, by 2050 could be ~2000+ with accumulation
+                return (total_demand * 0.1, total_demand * 20.0)
             else:
                 # Tighter bounds for other factors like labor
                 return (total_demand * 0.8, total_demand * 1.5)
@@ -257,6 +258,9 @@ class MarketClearingClosureBlock:
             if year and year > model_definitions.base_year:
                 # Future years: capital stock fixed from previous period
                 capital_stock = self.calculate_capital_stock(year)
+                # Update bounds to accommodate the new capital stock value
+                self.model.FS['Capital'].setlb(capital_stock * 0.5)
+                self.model.FS['Capital'].setub(capital_stock * 1.5)
                 self.model.FS['Capital'].fix(capital_stock)
                 print(
                     f"Fixed capital stock for year {year}: {capital_stock:.2f}")
