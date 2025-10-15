@@ -58,10 +58,10 @@ class EnhancedItalianDynamicSimulation:
         try:
             # Initialize the calibration module
             calibration_generator = ComprehensiveResultsGenerator()
-            
+
             # Run calibration and get results
             success, excel_file = calibration_generator.run_base_year_calibration_and_generate_results()
-            
+
             if success and calibration_generator.base_year_results:
                 print(f"  Calibration completed successfully")
                 print(f"  Excel results saved: {excel_file}")
@@ -69,7 +69,7 @@ class EnhancedItalianDynamicSimulation:
             else:
                 print("  Calibration failed, will use fallback data")
                 return None
-                
+
         except Exception as e:
             print(f"  Error in calibration: {str(e)}")
             print("  Will use fallback base year data")
@@ -85,27 +85,28 @@ class EnhancedItalianDynamicSimulation:
         else:
             print("  Using fallback base year data")
             return self.get_fallback_base_data()
-    
+
     def extract_base_data_from_calibration(self):
         """
         Extract and format calibrated data into the structure expected by dynamic simulation
         """
         print("    Extracting data from calibration results...")
-        
+
         # Start with fallback data structure and update with calibrated values
         base_data = self.get_fallback_base_data()
-        
+
         try:
             # Update with calibrated data
             calibrated = self.calibrated_results
-            
+
             # Extract GDP data
             if 'gdp_eur_millions' in calibrated:
                 gdp_data = calibrated['gdp_eur_millions']
                 if 'GDP_EUR_Billions' in gdp_data:
                     base_data['gdp_total'] = gdp_data['GDP_EUR_Billions']
-                    print(f"    Updated GDP: €{base_data['gdp_total']:.1f} billion")
-            
+                    print(
+                        f"    Updated GDP: €{base_data['gdp_total']:.1f} billion")
+
             # Extract sectoral value added
             if 'sectoral_outputs_eur_millions' in calibrated:
                 sectoral_data = calibrated['sectoral_outputs_eur_millions']
@@ -117,22 +118,24 @@ class EnhancedItalianDynamicSimulation:
                     'Transport': ['Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport', 'Other Transport'],
                     'Services': ['other Sectors (14)']
                 }
-                
+
                 for agg_sector, source_sectors in sector_mapping.items():
                     total_va = 0
                     for source_sector in source_sectors:
                         sector_key = f'{source_sector}_EUR_Millions'
                         if sector_key in sectoral_data:
-                            total_va += sectoral_data[sector_key] / 1000  # Convert to billions
-                    
+                            # Convert to billions
+                            total_va += sectoral_data[sector_key] / 1000
+
                     if total_va > 0:
                         base_data['sectoral_value_added'][agg_sector] = total_va
-                        print(f"    Updated {agg_sector} VA: €{total_va:.1f} billion")
-            
+                        print(
+                            f"    Updated {agg_sector} VA: €{total_va:.1f} billion")
+
             # Extract energy demand data
             if 'energy_demand_sectors_mwh' in calibrated:
                 energy_data = calibrated['energy_demand_sectors_mwh']
-                
+
                 # Update sectoral energy demand
                 for sector, carriers in base_data['energy_demand_sectoral'].items():
                     for carrier in carriers:
@@ -142,13 +145,14 @@ class EnhancedItalianDynamicSimulation:
                                 carrier_key = f'{carrier.title()}_MWh'
                                 if carrier_key in cal_data:
                                     base_data['energy_demand_sectoral'][carrier][sector] = cal_data[carrier_key]
-                                    print(f"    Updated {sector} {carrier}: {cal_data[carrier_key]:,.0f} MWh")
+                                    print(
+                                        f"    Updated {sector} {carrier}: {cal_data[carrier_key]:,.0f} MWh")
                                     break
-            
+
             # Extract household energy demand
             if 'energy_demand_households_mwh' in calibrated:
                 household_energy = calibrated['energy_demand_households_mwh']
-                
+
                 # Map regions and update household energy data
                 for region in base_data['household_energy_demand']['electricity'].keys():
                     for carrier in ['electricity', 'gas', 'other_energy']:
@@ -158,9 +162,10 @@ class EnhancedItalianDynamicSimulation:
                                 carrier_key = f'{carrier.title()}_MWh'
                                 if carrier_key in cal_data:
                                     base_data['household_energy_demand'][carrier][region] = cal_data[carrier_key]
-                                    print(f"    Updated {region} household {carrier}: {cal_data[carrier_key]:,.0f} MWh")
+                                    print(
+                                        f"    Updated {region} household {carrier}: {cal_data[carrier_key]:,.0f} MWh")
                                     break
-            
+
             # Extract energy prices
             if 'energy_prices_eur_per_mwh' in calibrated:
                 price_data = calibrated['energy_prices_eur_per_mwh']
@@ -168,22 +173,24 @@ class EnhancedItalianDynamicSimulation:
                     price_key = f'{carrier.title()}_EUR_per_MWh'
                     if price_key in price_data:
                         base_data['energy_prices'][carrier] = price_data[price_key]
-                        print(f"    Updated {carrier} price: €{price_data[price_key]:.2f}/MWh")
-            
+                        print(
+                            f"    Updated {carrier} price: €{price_data[price_key]:.2f}/MWh")
+
             # Extract CO2 emissions
             if 'co2_emissions_mtco2' in calibrated:
                 co2_data = calibrated['co2_emissions_mtco2']
                 if 'Total_CO2_Emissions_Fuel_Combustion_MtCO2' in co2_data:
                     base_data['co2_emissions_total'] = co2_data['Total_CO2_Emissions_Fuel_Combustion_MtCO2']
-                    print(f"    Updated CO2 emissions: {base_data['co2_emissions_total']:.1f} MtCO2")
-            
+                    print(
+                        f"    Updated CO2 emissions: {base_data['co2_emissions_total']:.1f} MtCO2")
+
             print("    Base data extraction from calibration completed")
-            
+
         except Exception as e:
             print(f"    Error extracting calibrated data: {str(e)}")
             print("    Using fallback data")
             return self.get_fallback_base_data()
-        
+
         return base_data
 
     def map_sector_name(self, dynamic_sector, calibrated_sector):
@@ -197,7 +204,7 @@ class EnhancedItalianDynamicSimulation:
             'Transport': ['Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport', 'Other Transport'],
             'Services': 'other Sectors (14)'
         }
-        
+
         mapped = sector_mapping.get(dynamic_sector, dynamic_sector)
         if isinstance(mapped, list):
             return calibrated_sector in mapped
@@ -211,14 +218,14 @@ class EnhancedItalianDynamicSimulation:
         # For now, assume direct mapping - can be enhanced if needed
         region_mapping = {
             'Northwest': 'Northwest',
-            'Northeast': 'Northeast', 
+            'Northeast': 'Northeast',
             'Centre': 'Centre',
             'South': 'South',
             'Islands': 'Islands'
         }
-        
+
         return calibrated_region == region_mapping.get(dynamic_region, dynamic_region)
-    
+
     def get_fallback_base_data(self):
         """
         Return fallback base data if calibration is not available
@@ -229,29 +236,34 @@ class EnhancedItalianDynamicSimulation:
             'population': 59.13,   # million people
             'cpi_base': 1.0,      # normalized to 2021 = 1.0
             'ppi_base': 1.0,      # normalized to 2021 = 1.0
-            
+
             # Regional GDP distribution (from calibrated results)
             'gdp_regional': {
-                'Northwest': 479.34,    # 26.9% of total (Lombardy, Piedmont, Valle d'Aosta, Liguria)
-                'Northeast': 340.35,    # 19.1% of total (Veneto, Trentino-Alto Adige, Friuli-Venezia Giulia, Emilia-Romagna)
-                'Centre': 354.60,      # 19.9% of total (Tuscany, Umbria, Marche, Lazio)
-                'South': 415.11,       # 23.3% of total (Abruzzo, Molise, Campania, Puglia, Basilicata, Calabria)
+                # 26.9% of total (Lombardy, Piedmont, Valle d'Aosta, Liguria)
+                'Northwest': 479.34,
+                # 19.1% of total (Veneto, Trentino-Alto Adige, Friuli-Venezia Giulia, Emilia-Romagna)
+                'Northeast': 340.35,
+                # 19.9% of total (Tuscany, Umbria, Marche, Lazio)
+                'Centre': 354.60,
+                # 23.3% of total (Abruzzo, Molise, Campania, Puglia, Basilicata, Calabria)
+                'South': 415.11,
                 'Islands': 192.60      # 10.8% of total (Sicily, Sardinia)
             },
-            
+
             # Sectoral value added (aligned to aggregated mapping - from calibration)
             'sectoral_value_added': {
                 'Agriculture': 25.0,           # Agriculture and forestry
                 'Industry': 280.0,            # Manufacturing and construction
                 'Energy': 45.0,              # Electricity, gas, other energy
                 'Transport': 85.0,            # All transport modes
-                'Services': 1347.0           # All other services (largest sector)
+                # All other services (largest sector)
+                'Services': 1347.0
             },
-            
+
             # Household income and expenditure by region (billion EUR)
             'household_income': {
                 'Northwest': 331.5,
-                'Northeast': 241.4, 
+                'Northeast': 241.4,
                 'Centre': 246.4,
                 'South': 294.0,
                 'Islands': 137.6
@@ -263,7 +275,7 @@ class EnhancedItalianDynamicSimulation:
                 'South': 251.7,
                 'Islands': 117.8
             },
-            
+
             # Energy demand by carrier and sector (MWh annual - from calibration results)
             'energy_demand_sectoral': {
                 'electricity': {
@@ -288,7 +300,7 @@ class EnhancedItalianDynamicSimulation:
                     'Services': 890000.0
                 }
             },
-            
+
             # Household energy demand by region (MWh annual - from calibration results)
             'household_energy_demand': {
                 'electricity': {
@@ -313,7 +325,7 @@ class EnhancedItalianDynamicSimulation:
                     'Islands': 5108832.0
                 }
             },
-            
+
             # Trade (billion EUR - estimated from Italian statistics)
             'exports': {
                 'Agriculture': 21.2,
@@ -329,14 +341,14 @@ class EnhancedItalianDynamicSimulation:
                 'Transport': 11.9,
                 'Services': 364.1
             },
-            
+
             # Energy prices (EUR/MWh - from calibration)
             'energy_prices': {
                 'electricity': 150.0,
                 'gas': 45.0,
                 'other_energy': 65.0
             },
-            
+
             # CO2 emissions (MtCO2 - from calibration)
             'co2_emissions_total': 381.2,
             'co2_emissions_by_sector': {
@@ -346,12 +358,12 @@ class EnhancedItalianDynamicSimulation:
                 'Transport': 95.3,
                 'Services': 64.4
             },
-            
+
             # Labor market indicators (2021 base year - from ISTAT)
             'employment_total': 22.9,  # million people employed
-            'labor_force_total': 25.7, # million people in labor force
-            'unemployment_rate': 0.093, # 9.3% unemployment rate in 2021
-            
+            'labor_force_total': 25.7,  # million people in labor force
+            'unemployment_rate': 0.093,  # 9.3% unemployment rate in 2021
+
             # Regional employment (millions of people)
             'employment_regional': {
                 'Northwest': 7.2,     # 31.4% of total employment
@@ -360,16 +372,16 @@ class EnhancedItalianDynamicSimulation:
                 'South': 4.1,         # 17.9% of total employment
                 'Islands': 1.2        # 5.2% of total employment
             },
-            
+
             # Regional labor force (millions of people)
             'labor_force_regional': {
-                'Northwest': 7.9,     
-                'Northeast': 6.2,     
-                'Centre': 5.1,        
-                'South': 5.0,         
-                'Islands': 1.5        
+                'Northwest': 7.9,
+                'Northeast': 6.2,
+                'Centre': 5.1,
+                'South': 5.0,
+                'Islands': 1.5
             },
-            
+
             # Population by region (millions - 2021)
             'population_regional': {
                 'Northwest': 16.05,   # 27.2% of population
@@ -378,7 +390,7 @@ class EnhancedItalianDynamicSimulation:
                 'South': 13.69,       # 23.2% of population
                 'Islands': 5.86       # 9.9% of population
             },
-            
+
             # Renewable energy investment (billion EUR - 2021 base)
             'renewable_investment_regional': {
                 'Northwest': 2.8,     # Industrial and solar focus
@@ -398,50 +410,53 @@ class EnhancedItalianDynamicSimulation:
         print("INITIALIZING ENHANCED ITALIAN DYNAMIC SIMULATION")
         print("="*70)
         print("Step 1: Running base year calibration...")
-        
+
         # Run calibration and get base year data
         self.calibrated_results = None
         if CALIBRATION_AVAILABLE:
             self.calibrated_results = self.run_calibration_and_extract_data()
-        
+
         # Initialize base data (will be updated with calibrated results if available)
         self.base_data = self.initialize_base_data()
-        
+
         print("Step 2: Setting up simulation parameters...")
 
         # Policy and economic assumptions
         self.assumptions = {
             # Macroeconomic growth rates by region
             'gdp_growth_rates': {
-                'Northwest': 0.015,    # 1.5% annual (mature industrial economy)
+                # 1.5% annual (mature industrial economy)
+                'Northwest': 0.015,
                 'Northeast': 0.018,    # 1.8% annual (dynamic manufacturing)
                 'Centre': 0.016,       # 1.6% annual (services and tourism)
                 'South': 0.022,        # 2.2% annual (convergence effect)
-                'Islands': 0.020       # 2.0% annual (tourism and renewable energy)
+                # 2.0% annual (tourism and renewable energy)
+                'Islands': 0.020
             },
-            
+
             # Sectoral productivity growth
             'sectoral_productivity': {
-                'Agriculture': 0.012,   # 1.2% annual  
+                'Agriculture': 0.012,   # 1.2% annual
                 'Industry': 0.018,     # 1.8% annual
                 'Energy': 0.035,       # 3.5% annual (renewable transition)
                 'Transport': 0.020,    # 2.0% annual (efficiency improvements)
                 'Services': 0.015      # 1.5% annual
             },
-            
+
             # Energy transition parameters
             'energy_efficiency_improvement': 0.018,  # 1.8% annual
             'electrification_rate': 0.025,          # 2.5% annual increase
             'renewable_share_growth': 0.045,         # 4.5% annual increase
-            
+
             # Carbon pricing parameters (EUR/tCO2)
             'carbon_prices': {
-                'ets1_initial': 53.90,     # ETS1 starting price in 2021 (actual EU ETS price)
+                # ETS1 starting price in 2021 (actual EU ETS price)
+                'ets1_initial': 53.90,
                 'ets1_growth_rate': 0.04,   # 4% annual growth
                 'ets2_initial': 45.0,       # ETS2 starting price in 2027
                 'ets2_growth_rate': 0.025   # 2.5% annual growth
             },
-            
+
             # Inflation rates
             'inflation': {
                 'cpi_base_rate': 0.02,      # 2% annual CPI inflation target
@@ -452,9 +467,10 @@ class EnhancedItalianDynamicSimulation:
         print("Enhanced Italian Dynamic CGE Simulation Initialized")
         print(f"Period: {self.base_year}-{self.final_year}")
         print(f"Base Year GDP: €{self.base_data['gdp_total']:.0f} billion")
-        print(f"Base Year Population: {self.base_data['population']:.1f} million")
+        print(
+            f"Base Year Population: {self.base_data['population']:.1f} million")
         print("Scenarios: BAU, ETS1 (Industry), ETS2 (+Buildings & Transport)")
-        
+
         if IPOPT_AVAILABLE:
             print("IPOPT solver will be used for dynamic equilibrium computation")
         else:
@@ -468,28 +484,31 @@ class EnhancedItalianDynamicSimulation:
         if not IPOPT_AVAILABLE:
             # Fallback to analytical calculation if IPOPT not available
             return self.calculate_analytical_approximation(year, scenario, previous_year_data)
-        
+
         try:
             # Create Pyomo model for dynamic CGE
             model = pyo.ConcreteModel(name=f"Italian_CGE_{year}_{scenario}")
-            
+
             # =============================================================
             # SETS
             # =============================================================
-            model.regions = pyo.Set(initialize=['Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
-            model.sectors = pyo.Set(initialize=['Agriculture', 'Industry', 'Energy', 'Transport', 'Services'])
-            model.energy_carriers = pyo.Set(initialize=['electricity', 'gas', 'other_energy'])
-            
+            model.regions = pyo.Set(
+                initialize=['Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
+            model.sectors = pyo.Set(
+                initialize=['Agriculture', 'Industry', 'Energy', 'Transport', 'Services'])
+            model.energy_carriers = pyo.Set(
+                initialize=['electricity', 'gas', 'other_energy'])
+
             # =============================================================
             # PARAMETERS (from base year and growth assumptions)
             # =============================================================
             years_elapsed = year - self.base_year
-            
+
             # Regional GDP targets (with growth projections)
             regional_gdp_targets = {}
             for region in model.regions:
                 growth_rate = self.assumptions['gdp_growth_rates'][region]
-                
+
                 # Apply scenario effects
                 if scenario == 'ETS1' and year >= 2021:
                     if region in ['Northwest', 'Northeast']:
@@ -500,161 +519,179 @@ class EnhancedItalianDynamicSimulation:
                     growth_rate *= 0.998
                     if region in ['Centre', 'Northwest']:
                         growth_rate *= 1.004
-                
-                regional_gdp_targets[region] = (self.base_data['gdp_regional'][region] * 
-                                              (1 + growth_rate) ** years_elapsed)
-            
+
+                regional_gdp_targets[region] = (self.base_data['gdp_regional'][region] *
+                                                (1 + growth_rate) ** years_elapsed)
+
             # Carbon pricing parameters
             carbon_price_ets1 = 0
             carbon_price_ets2 = 0
-            
+
             if scenario == 'ETS1' and year >= 2021:
-                carbon_price_ets1 = (self.assumptions['carbon_prices']['ets1_initial'] * 
-                                    (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_elapsed)
+                carbon_price_ets1 = (self.assumptions['carbon_prices']['ets1_initial'] *
+                                     (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_elapsed)
             elif scenario == 'ETS2' and year >= 2027:
                 years_ets2 = year - 2027
-                carbon_price_ets1 = (self.assumptions['carbon_prices']['ets1_initial'] * 
-                                    (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_elapsed)
-                carbon_price_ets2 = (self.assumptions['carbon_prices']['ets2_initial'] * 
-                                    (1 + self.assumptions['carbon_prices']['ets2_growth_rate']) ** years_ets2)
-            
+                carbon_price_ets1 = (self.assumptions['carbon_prices']['ets1_initial'] *
+                                     (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_elapsed)
+                carbon_price_ets2 = (self.assumptions['carbon_prices']['ets2_initial'] *
+                                     (1 + self.assumptions['carbon_prices']['ets2_growth_rate']) ** years_ets2)
+
             # =============================================================
             # VARIABLES
             # =============================================================
-            
+
             # Regional GDP
-            model.gdp_regional = pyo.Var(model.regions, bounds=(100, 2000), initialize=regional_gdp_targets)
-            
+            model.gdp_regional = pyo.Var(model.regions, bounds=(
+                100, 2000), initialize=regional_gdp_targets)
+
             # Sectoral value added
-            model.va_sectoral = pyo.Var(model.sectors, bounds=(10, 2000), 
-                                      initialize=self.base_data['sectoral_value_added'])
-            
+            model.va_sectoral = pyo.Var(model.sectors, bounds=(10, 2000),
+                                        initialize=self.base_data['sectoral_value_added'])
+
             # Regional employment
-            model.employment_regional = pyo.Var(model.regions, bounds=(0.5, 15), 
-                                              initialize=self.base_data['employment_regional'])
-            
+            model.employment_regional = pyo.Var(model.regions, bounds=(0.5, 15),
+                                                initialize=self.base_data['employment_regional'])
+
             # Regional labor force
-            model.labor_force_regional = pyo.Var(model.regions, bounds=(0.5, 15), 
-                                                initialize=self.base_data['labor_force_regional'])
-            
+            model.labor_force_regional = pyo.Var(model.regions, bounds=(0.5, 15),
+                                                 initialize=self.base_data['labor_force_regional'])
+
             # Regional population
-            model.population_regional = pyo.Var(model.regions, bounds=(1, 20), 
-                                              initialize=self.base_data['population_regional'])
-            
+            model.population_regional = pyo.Var(model.regions, bounds=(1, 20),
+                                                initialize=self.base_data['population_regional'])
+
             # Energy demand by sector and carrier
-            model.energy_sectoral = pyo.Var(model.sectors, model.energy_carriers, bounds=(1000, 100000000), 
-                                           initialize=lambda m, s, c: self.base_data['energy_demand_sectoral'][c][s])
-            
+            model.energy_sectoral = pyo.Var(model.sectors, model.energy_carriers, bounds=(1000, 100000000),
+                                            initialize=lambda m, s, c: self.base_data['energy_demand_sectoral'][c][s])
+
             # Energy demand by region and carrier (households)
-            model.energy_household = pyo.Var(model.regions, model.energy_carriers, bounds=(1000000, 80000000), 
-                                            initialize=lambda m, r, c: self.base_data['household_energy_demand'][c][r])
-            
+            model.energy_household = pyo.Var(model.regions, model.energy_carriers, bounds=(1000000, 80000000),
+                                             initialize=lambda m, r, c: self.base_data['household_energy_demand'][c][r])
+
             # Renewable investment by region
-            model.renewable_investment = pyo.Var(model.regions, bounds=(0.5, 50), 
-                                               initialize=self.base_data['renewable_investment_regional'])
-            
+            model.renewable_investment = pyo.Var(model.regions, bounds=(0.5, 50),
+                                                 initialize=self.base_data['renewable_investment_regional'])
+
             # Household income and expenditure
-            model.household_income = pyo.Var(model.regions, bounds=(50, 800), 
-                                           initialize=self.base_data['household_income'])
-            model.household_expenditure = pyo.Var(model.regions, bounds=(40, 700), 
-                                                initialize=self.base_data['household_expenditure'])
-            
+            model.household_income = pyo.Var(model.regions, bounds=(50, 800),
+                                             initialize=self.base_data['household_income'])
+            model.household_expenditure = pyo.Var(model.regions, bounds=(40, 700),
+                                                  initialize=self.base_data['household_expenditure'])
+
             # Price indices
             model.cpi = pyo.Var(bounds=(0.8, 3.0), initialize=1.0)
             model.ppi = pyo.Var(bounds=(0.8, 3.0), initialize=1.0)
-            
+
             # Trade variables
-            model.exports_sectoral = pyo.Var(model.sectors, bounds=(1, 500), 
-                                           initialize=self.base_data['exports'])
-            model.imports_sectoral = pyo.Var(model.sectors, bounds=(1, 500), 
-                                           initialize=self.base_data['imports'])
-            
+            model.exports_sectoral = pyo.Var(model.sectors, bounds=(1, 500),
+                                             initialize=self.base_data['exports'])
+            model.imports_sectoral = pyo.Var(model.sectors, bounds=(1, 500),
+                                             initialize=self.base_data['imports'])
+
             # =============================================================
             # CONSTRAINTS (General Equilibrium Conditions)
             # =============================================================
-            
+
             # 1. GDP Identity: Sum of regional GDP equals sectoral value added
-            model.gdp_identity = pyo.Constraint(expr=sum(model.gdp_regional[r] for r in model.regions) == 
-                                              sum(model.va_sectoral[s] for s in model.sectors))
-            
+            model.gdp_identity = pyo.Constraint(expr=sum(model.gdp_regional[r] for r in model.regions) ==
+                                                sum(model.va_sectoral[s] for s in model.sectors))
+
             # 2. Labor Market Equilibrium by region
             def labor_market_equilibrium(m, r):
                 # Employment rate should be realistic (between 85-95%)
                 return m.employment_regional[r] <= 0.95 * m.labor_force_regional[r]
-            model.labor_market_eq = pyo.Constraint(model.regions, rule=labor_market_equilibrium)
-            
+            model.labor_market_eq = pyo.Constraint(
+                model.regions, rule=labor_market_equilibrium)
+
             # 3. Regional GDP-Employment relationship
             def regional_gdp_employment(m, r):
                 base_gdp = self.base_data['gdp_regional'][r]
                 base_emp = self.base_data['employment_regional'][r]
                 # GDP per worker grows with productivity
-                productivity_factor = (1 + 0.015) ** years_elapsed  # 1.5% annual productivity growth
+                # 1.5% annual productivity growth
+                productivity_factor = (1 + 0.015) ** years_elapsed
                 return m.gdp_regional[r] == (m.employment_regional[r] / base_emp) * base_gdp * productivity_factor
-            model.regional_gdp_emp = pyo.Constraint(model.regions, rule=regional_gdp_employment)
-            
+            model.regional_gdp_emp = pyo.Constraint(
+                model.regions, rule=regional_gdp_employment)
+
             # 4. Energy-GDP relationship by sector
             def energy_gdp_relationship(m, s, c):
                 base_energy = self.base_data['energy_demand_sectoral'][c][s]
                 base_va = self.base_data['sectoral_value_added'][s]
                 # Energy intensity declines over time
-                efficiency_factor = (1 - 0.018) ** years_elapsed  # 1.8% annual efficiency improvement
+                # 1.8% annual efficiency improvement
+                efficiency_factor = (1 - 0.018) ** years_elapsed
                 # Carbon pricing effects
                 carbon_factor = 1.0
                 if scenario in ['ETS1', 'ETS2'] and year >= 2021:
                     if c == 'gas' and carbon_price_ets1 > 0:
-                        carbon_factor *= (1 - 0.001 * carbon_price_ets1)  # Gas demand reduction
+                        # Gas demand reduction
+                        carbon_factor *= (1 - 0.001 * carbon_price_ets1)
                     elif c == 'electricity' and carbon_price_ets1 > 0:
-                        carbon_factor *= (1 + 0.0005 * carbon_price_ets1)  # Electricity demand increase
-                
+                        # Electricity demand increase
+                        carbon_factor *= (1 + 0.0005 * carbon_price_ets1)
+
                 return m.energy_sectoral[s, c] == (m.va_sectoral[s] / base_va) * base_energy * efficiency_factor * carbon_factor
-            model.energy_gdp_rel = pyo.Constraint(model.sectors, model.energy_carriers, rule=energy_gdp_relationship)            # 5. Household energy-income relationship
+            # 5. Household energy-income relationship
+            model.energy_gdp_rel = pyo.Constraint(
+                model.sectors, model.energy_carriers, rule=energy_gdp_relationship)
+
             def household_energy_income(m, r, c):
                 base_energy = self.base_data['household_energy_demand'][c][r]
                 base_income = self.base_data['household_income'][r]
                 # Energy demand elasticity to income
-                income_elasticity = 0.7 if c == 'electricity' else 0.5  # Electricity more income elastic
-                efficiency_factor = (1 - 0.015) ** years_elapsed  # Household efficiency improvements
-                
+                # Electricity more income elastic
+                income_elasticity = 0.7 if c == 'electricity' else 0.5
+                # Household efficiency improvements
+                efficiency_factor = (1 - 0.015) ** years_elapsed
+
                 # Carbon pricing effects on households
                 carbon_factor = 1.0
                 if scenario == 'ETS2' and year >= 2027 and carbon_price_ets2 > 0:
                     if c == 'gas':
-                        carbon_factor *= (1 - 0.002 * carbon_price_ets2)  # Strong gas reduction
+                        # Strong gas reduction
+                        carbon_factor *= (1 - 0.002 * carbon_price_ets2)
                     elif c == 'electricity':
-                        carbon_factor *= (1 + 0.001 * carbon_price_ets2)  # Heat pump adoption
-                
+                        # Heat pump adoption
+                        carbon_factor *= (1 + 0.001 * carbon_price_ets2)
+
                 return m.energy_household[r, c] == base_energy * ((m.household_income[r] / base_income) ** income_elasticity) * efficiency_factor * carbon_factor
-            model.household_energy_income = pyo.Constraint(model.regions, model.energy_carriers, rule=household_energy_income)
-            
+            model.household_energy_income = pyo.Constraint(
+                model.regions, model.energy_carriers, rule=household_energy_income)
+
             # 6. Income-GDP relationship by region
             def income_gdp_relationship(m, r):
                 base_income = self.base_data['household_income'][r]
                 base_gdp = self.base_data['gdp_regional'][r]
                 # Income share of GDP remains relatively stable
                 return m.household_income[r] == (m.gdp_regional[r] / base_gdp) * base_income
-            model.income_gdp_rel = pyo.Constraint(model.regions, rule=income_gdp_relationship)
-            
+            model.income_gdp_rel = pyo.Constraint(
+                model.regions, rule=income_gdp_relationship)
+
             # 7. Expenditure-Income relationship (savings rate)
             def expenditure_income_relationship(m, r):
                 # Savings rate between 10-20%
                 return m.household_expenditure[r] >= 0.80 * m.household_income[r]
-            model.expenditure_income = pyo.Constraint(model.regions, rule=expenditure_income_relationship)
-            
+            model.expenditure_income = pyo.Constraint(
+                model.regions, rule=expenditure_income_relationship)
+
             def expenditure_income_upper(m, r):
                 return m.household_expenditure[r] <= 0.90 * m.household_income[r]
-            model.expenditure_income_upper = pyo.Constraint(model.regions, rule=expenditure_income_upper)
-            
+            model.expenditure_income_upper = pyo.Constraint(
+                model.regions, rule=expenditure_income_upper)
+
             # 8. Renewable investment accelerates with carbon pricing
             def renewable_investment_carbon(m, r):
                 base_investment = self.base_data['renewable_investment_regional'][r]
                 base_growth_rate = {
-                    'Northwest': 0.08, 'Northeast': 0.07, 'Centre': 0.09, 
+                    'Northwest': 0.08, 'Northeast': 0.07, 'Centre': 0.09,
                     'South': 0.12, 'Islands': 0.15
                 }[r]
-                
+
                 # Base growth
                 growth_factor = (1 + base_growth_rate) ** years_elapsed
-                
+
                 # Carbon pricing acceleration
                 carbon_acceleration = 1.0
                 if scenario == 'ETS1' and year >= 2021:
@@ -663,13 +700,15 @@ class EnhancedItalianDynamicSimulation:
                     carbon_acceleration = 1.4  # 40% boost
                     if r in ['South', 'Islands']:
                         carbon_acceleration = 1.6  # Extra boost for southern regions
-                
+
                 # Scale with regional economic capacity
-                gdp_factor = m.gdp_regional[r] / self.base_data['gdp_regional'][r]
-                
+                gdp_factor = m.gdp_regional[r] / \
+                    self.base_data['gdp_regional'][r]
+
                 return m.renewable_investment[r] == base_investment * growth_factor * carbon_acceleration * gdp_factor
-            model.renewable_investment_carbon = pyo.Constraint(model.regions, rule=renewable_investment_carbon)
-            
+            model.renewable_investment_carbon = pyo.Constraint(
+                model.regions, rule=renewable_investment_carbon)
+
             # 9. Population dynamics
             def population_dynamics(m, r):
                 base_pop = self.base_data['population_regional'][r]
@@ -678,15 +717,16 @@ class EnhancedItalianDynamicSimulation:
                     'South': -0.005, 'Islands': -0.003
                 }
                 growth_factor = (1 + growth_rates[r]) ** years_elapsed
-                
+
                 # Green transition effects
                 scenario_factor = 1.0
                 if scenario == 'ETS2' and year >= 2027 and r in ['South', 'Islands']:
                     scenario_factor = 1.002  # Reduced emigration due to green jobs
-                
+
                 return m.population_regional[r] == base_pop * growth_factor * scenario_factor
-            model.population_dynamics = pyo.Constraint(model.regions, rule=population_dynamics)
-            
+            model.population_dynamics = pyo.Constraint(
+                model.regions, rule=population_dynamics)
+
             # 10. Labor force dynamics
             def labor_force_dynamics(m, r):
                 # Labor force grows slower than population due to aging
@@ -696,59 +736,66 @@ class EnhancedItalianDynamicSimulation:
                 }
                 base_lf = self.base_data['labor_force_regional'][r]
                 growth_factor = (1 + participation_rates[r]) ** years_elapsed
-                
+
                 scenario_factor = 1.0
                 if scenario == 'ETS2' and year >= 2027:
                     scenario_factor = 1.001  # Green jobs expansion
-                
+
                 return m.labor_force_regional[r] == base_lf * growth_factor * scenario_factor
-            model.labor_force_dynamics = pyo.Constraint(model.regions, rule=labor_force_dynamics)
-            
+            model.labor_force_dynamics = pyo.Constraint(
+                model.regions, rule=labor_force_dynamics)
+
             # =============================================================
             # OBJECTIVE: Minimize deviation from target GDP while maximizing welfare
             # =============================================================
-            
+
             def objective_rule(m):
                 # Minimize squared deviations from GDP targets
-                gdp_deviation = sum((m.gdp_regional[r] - regional_gdp_targets[r])**2 for r in m.regions)
-                
+                gdp_deviation = sum(
+                    (m.gdp_regional[r] - regional_gdp_targets[r])**2 for r in m.regions)
+
                 # Maximize total consumption (welfare proxy)
-                total_consumption = sum(m.household_expenditure[r] for r in m.regions)
-                
+                total_consumption = sum(
+                    m.household_expenditure[r] for r in m.regions)
+
                 # Minimize unemployment
-                unemployment_penalty = sum((m.labor_force_regional[r] - m.employment_regional[r])**2 for r in m.regions)
-                
+                unemployment_penalty = sum(
+                    (m.labor_force_regional[r] - m.employment_regional[r])**2 for r in m.regions)
+
                 # Weighted objective: minimize GDP deviation and unemployment, maximize consumption
                 return 0.5 * gdp_deviation + 100 * unemployment_penalty - 0.01 * total_consumption
-            
-            model.objective = pyo.Objective(rule=objective_rule, sense=pyo.minimize)
-            
+
+            model.objective = pyo.Objective(
+                rule=objective_rule, sense=pyo.minimize)
+
             # =============================================================
             # SOLVE WITH IPOPT
             # =============================================================
-            
+
             # Create IPOPT solver
             solver = SolverFactory('ipopt')
             solver.options['max_iter'] = 3000
             solver.options['tol'] = 1e-6
             solver.options['print_level'] = 0  # Reduce output
-            
+
             # Solve the model
             results = solver.solve(model, tee=False)
-            
+
             # Check if solution is optimal
             if results.solver.termination_condition == pyo.TerminationCondition.optimal:
                 # Extract results into the same format as analytical calculations
-                
+
                 # Macroeconomy
-                total_gdp = sum(pyo.value(model.gdp_regional[r]) for r in model.regions)
-                regional_gdp = {r: pyo.value(model.gdp_regional[r]) for r in model.regions}
-                
+                total_gdp = sum(
+                    pyo.value(model.gdp_regional[r]) for r in model.regions)
+                regional_gdp = {r: pyo.value(
+                    model.gdp_regional[r]) for r in model.regions}
+
                 # Calculate price indices (simplified for now)
                 years_elapsed = year - self.base_year
                 base_cpi_growth = self.assumptions['inflation']['cpi_base_rate']
                 base_ppi_growth = self.assumptions['inflation']['ppi_base_rate']
-                
+
                 cpi_scenario_effect = 1.0
                 ppi_scenario_effect = 1.0
                 if scenario == 'ETS1' and year >= 2021:
@@ -757,10 +804,12 @@ class EnhancedItalianDynamicSimulation:
                 elif scenario == 'ETS2' and year >= 2027:
                     cpi_scenario_effect = 1.002
                     ppi_scenario_effect = 1.001
-                
-                cpi = self.base_data['cpi_base'] * (1 + base_cpi_growth * cpi_scenario_effect) ** years_elapsed
-                ppi = self.base_data['ppi_base'] * (1 + base_ppi_growth * ppi_scenario_effect) ** years_elapsed
-                
+
+                cpi = self.base_data['cpi_base'] * \
+                    (1 + base_cpi_growth * cpi_scenario_effect) ** years_elapsed
+                ppi = self.base_data['ppi_base'] * \
+                    (1 + base_ppi_growth * ppi_scenario_effect) ** years_elapsed
+
                 macroeconomy = {
                     'real_gdp_total': total_gdp,
                     'real_gdp_regional': regional_gdp,
@@ -768,20 +817,23 @@ class EnhancedItalianDynamicSimulation:
                     'ppi': ppi,
                     'gdp_per_capita': total_gdp * 1000 / self.base_data['population']
                 }
-                
+
                 # Sectoral value added
-                sectoral_va = {s: pyo.value(model.va_sectoral[s]) for s in model.sectors}
-                
+                sectoral_va = {s: pyo.value(
+                    model.va_sectoral[s]) for s in model.sectors}
+
                 # Households
                 households = {
                     'income': {r: pyo.value(model.household_income[r]) for r in model.regions},
                     'expenditure': {r: pyo.value(model.household_expenditure[r]) for r in model.regions}
                 }
-                
+
                 # Energy
-                sectoral_energy = {c: {s: pyo.value(model.energy_sectoral[s, c]) for s in model.sectors} for c in model.energy_carriers}
-                household_energy = {c: {r: pyo.value(model.energy_household[r, c]) for r in model.regions} for c in model.energy_carriers}
-                
+                sectoral_energy = {c: {s: pyo.value(
+                    model.energy_sectoral[s, c]) for s in model.sectors} for c in model.energy_carriers}
+                household_energy = {c: {r: pyo.value(
+                    model.energy_household[r, c]) for r in model.regions} for c in model.energy_carriers}
+
                 # Calculate energy totals
                 energy_totals = {}
                 for carrier in model.energy_carriers:
@@ -789,14 +841,15 @@ class EnhancedItalianDynamicSimulation:
                     household_total = sum(household_energy[carrier].values())
                     energy_totals[f'{carrier}_sectoral_total'] = sectoral_total
                     energy_totals[f'{carrier}_household_total'] = household_total
-                    energy_totals[f'{carrier}_total'] = sectoral_total + household_total
-                
+                    energy_totals[f'{carrier}_total'] = sectoral_total + \
+                        household_total
+
                 energy = {
                     'sectoral_energy': sectoral_energy,
                     'household_energy': household_energy,
                     'totals': energy_totals
                 }
-                
+
                 # Labor market
                 labor_market = {
                     'employment_total': sum(pyo.value(model.employment_regional[r]) for r in model.regions),
@@ -805,35 +858,42 @@ class EnhancedItalianDynamicSimulation:
                     'labor_force_regional': {r: pyo.value(model.labor_force_regional[r]) for r in model.regions},
                     'unemployment_rate_regional': {r: max(0.02, 1 - (pyo.value(model.employment_regional[r]) / pyo.value(model.labor_force_regional[r]))) for r in model.regions}
                 }
-                labor_market['unemployment_rate_national'] = 1 - (labor_market['employment_total'] / labor_market['labor_force_total'])
-                
+                labor_market['unemployment_rate_national'] = 1 - \
+                    (labor_market['employment_total'] /
+                     labor_market['labor_force_total'])
+
                 # Demographics
                 demographics = {
                     'population_total': sum(pyo.value(model.population_regional[r]) for r in model.regions),
                     'population_regional': {r: pyo.value(model.population_regional[r]) for r in model.regions}
                 }
-                demographics['population_growth_rate_national'] = (demographics['population_total'] / self.base_data['population'] - 1) / max(1, years_elapsed)
-                
+                demographics['population_growth_rate_national'] = (
+                    demographics['population_total'] / self.base_data['population'] - 1) / max(1, years_elapsed)
+
                 # Renewable investment
-                renewable_investment_regional = {r: pyo.value(model.renewable_investment[r]) for r in model.regions}
-                total_renewable_investment = sum(renewable_investment_regional.values())
-                
+                renewable_investment_regional = {r: pyo.value(
+                    model.renewable_investment[r]) for r in model.regions}
+                total_renewable_investment = sum(
+                    renewable_investment_regional.values())
+
                 renewable_investment = {
                     'renewable_investment_total': total_renewable_investment,
                     'renewable_investment_regional': renewable_investment_regional,
                     'renewable_capacity_additions_regional': {r: inv / 1.5 for r, inv in renewable_investment_regional.items()},
                     'renewable_investment_share_gdp': total_renewable_investment / total_gdp * 100
                 }
-                
+
                 # Carbon policy (using the same calculation as before)
                 carbon_policy = self.calculate_carbon_policy(year, scenario)
-                
+
                 # CO2 emissions calculation
-                co2_emissions = self.calculate_co2_emissions(year, scenario, energy, sectoral_va, macroeconomy)
-                
+                co2_emissions = self.calculate_co2_emissions(
+                    year, scenario, energy, sectoral_va, macroeconomy)
+
                 # Trade (simplified - same proportional scaling)
-                trade = self.calculate_trade(year, scenario, sectoral_va, macroeconomy)
-                
+                trade = self.calculate_trade(
+                    year, scenario, sectoral_va, macroeconomy)
+
                 return {
                     'macroeconomy': macroeconomy,
                     'sectoral_value_added': sectoral_va,
@@ -847,11 +907,12 @@ class EnhancedItalianDynamicSimulation:
                     'renewable_investment': renewable_investment,
                     'solver_status': 'optimal'
                 }
-                
+
             else:
-                print(f"Warning: IPOPT solver did not find optimal solution for {year} {scenario}")
+                print(
+                    f"Warning: IPOPT solver did not find optimal solution for {year} {scenario}")
                 return self.calculate_analytical_approximation(year, scenario, previous_year_data)
-                
+
         except Exception as e:
             print(f"Error in IPOPT solver for {year} {scenario}: {str(e)}")
             return self.calculate_analytical_approximation(year, scenario, previous_year_data)
@@ -862,16 +923,22 @@ class EnhancedItalianDynamicSimulation:
         """
         # This calls the original calculation methods
         macroeconomy = self.calculate_macroeconomy(year, scenario)
-        sectoral_va = self.calculate_sectoral_value_added(year, scenario, macroeconomy)
-        households = self.calculate_household_income_expenditure(year, scenario, macroeconomy)
-        energy = self.calculate_energy_demand(year, scenario, macroeconomy, sectoral_va)
+        sectoral_va = self.calculate_sectoral_value_added(
+            year, scenario, macroeconomy)
+        households = self.calculate_household_income_expenditure(
+            year, scenario, macroeconomy)
+        energy = self.calculate_energy_demand(
+            year, scenario, macroeconomy, sectoral_va)
         carbon_policy = self.calculate_carbon_policy(year, scenario)
-        co2_emissions = self.calculate_co2_emissions(year, scenario, energy, sectoral_va, macroeconomy)
+        co2_emissions = self.calculate_co2_emissions(
+            year, scenario, energy, sectoral_va, macroeconomy)
         trade = self.calculate_trade(year, scenario, sectoral_va, macroeconomy)
-        labor_market = self.calculate_labor_market(year, scenario, macroeconomy)
+        labor_market = self.calculate_labor_market(
+            year, scenario, macroeconomy)
         demographics = self.calculate_demographics(year, scenario)
-        renewable_investment = self.calculate_renewable_investment(year, scenario, macroeconomy)
-        
+        renewable_investment = self.calculate_renewable_investment(
+            year, scenario, macroeconomy)
+
         return {
             'macroeconomy': macroeconomy,
             'sectoral_value_added': sectoral_va,
@@ -891,56 +958,60 @@ class EnhancedItalianDynamicSimulation:
         Calculate macroeconomic indicators: real GDP, CPI, PPI
         """
         years_elapsed = year - self.base_year
-        
+
         # Real GDP calculation
         regional_gdp = {}
         total_real_gdp = 0
-        
+
         for region, base_gdp in self.base_data['gdp_regional'].items():
             growth_rate = self.assumptions['gdp_growth_rates'][region]
-            
+
             # Apply scenario-specific effects
             if scenario == 'ETS1' and year >= 2021:
                 if region in ['Northwest', 'Northeast']:  # Industrial regions
                     growth_rate *= 0.996  # Slight reduction due to carbon costs
                 else:
                     growth_rate *= 1.003  # Boost from green investment
-                    
+
             elif scenario == 'ETS2' and year >= 2027:
                 growth_rate *= 0.998  # Overall slight reduction
                 if region in ['Centre', 'Northwest']:  # Wealthy regions
                     growth_rate *= 1.004  # Green building investment boost
-            
-            regional_gdp[region] = base_gdp * (1 + growth_rate) ** years_elapsed
+
+            regional_gdp[region] = base_gdp * \
+                (1 + growth_rate) ** years_elapsed
             total_real_gdp += regional_gdp[region]
-        
+
         # Price indices (CPI and PPI)
         base_cpi_growth = self.assumptions['inflation']['cpi_base_rate']
         base_ppi_growth = self.assumptions['inflation']['ppi_base_rate']
-        
+
         # Apply scenario effects on inflation
         cpi_scenario_effect = 1.0
         ppi_scenario_effect = 1.0
-        
+
         if scenario == 'ETS1' and year >= 2021:
             # Industrial carbon pricing affects producer prices more
             ppi_scenario_effect = 1.003  # 0.3% additional PPI inflation
             cpi_scenario_effect = 1.001  # 0.1% additional CPI inflation
-            
+
         elif scenario == 'ETS2' and year >= 2027:
             # Buildings & transport carbon pricing affects consumer prices more
             cpi_scenario_effect = 1.002  # 0.2% additional CPI inflation
             ppi_scenario_effect = 1.001  # 0.1% additional PPI inflation
-        
-        cpi = self.base_data['cpi_base'] * (1 + base_cpi_growth * cpi_scenario_effect) ** years_elapsed
-        ppi = self.base_data['ppi_base'] * (1 + base_ppi_growth * ppi_scenario_effect) ** years_elapsed
-        
+
+        cpi = self.base_data['cpi_base'] * \
+            (1 + base_cpi_growth * cpi_scenario_effect) ** years_elapsed
+        ppi = self.base_data['ppi_base'] * \
+            (1 + base_ppi_growth * ppi_scenario_effect) ** years_elapsed
+
         return {
             'real_gdp_total': total_real_gdp,
             'real_gdp_regional': regional_gdp,
             'cpi': cpi,
             'ppi': ppi,
-            'gdp_per_capita': total_real_gdp * 1000 / self.base_data['population']  # thousand EUR per capita
+            # thousand EUR per capita
+            'gdp_per_capita': total_real_gdp * 1000 / self.base_data['population']
         }
 
     def calculate_sectoral_value_added(self, year, scenario, macroeconomy):
@@ -949,23 +1020,24 @@ class EnhancedItalianDynamicSimulation:
         """
         years_elapsed = year - self.base_year
         sectoral_va = {}
-        
+
         # Calculate value added for each sector
         for sector, base_va in self.base_data['sectoral_value_added'].items():
             productivity_growth = self.assumptions['sectoral_productivity'][sector]
-            
+
             # Scale with overall GDP growth
-            gdp_scaling = macroeconomy['real_gdp_total'] / self.base_data['gdp_total']
-            
+            gdp_scaling = macroeconomy['real_gdp_total'] / \
+                self.base_data['gdp_total']
+
             # Apply scenario-specific effects
             scenario_factor = 1.0
-            
+
             if scenario == 'ETS1' and year >= 2021:
                 if sector in ['Industry', 'Energy']:
                     scenario_factor = 0.995  # Carbon costs reduce industrial VA
                 elif sector in ['Services']:
                     scenario_factor = 1.008  # Green services expansion
-                    
+
             elif scenario == 'ETS2' and year >= 2027:
                 if sector == 'Transport':
                     scenario_factor = 0.992  # Transport carbon pricing impact
@@ -973,13 +1045,13 @@ class EnhancedItalianDynamicSimulation:
                     scenario_factor = 1.012  # Green building services
                 elif sector == 'Energy':
                     scenario_factor = 1.015  # Renewable energy expansion
-            
+
             # Calculate final value added
-            sectoral_va[sector] = (base_va * 
-                                 (1 + productivity_growth) ** years_elapsed * 
-                                 gdp_scaling * 
-                                 scenario_factor)
-        
+            sectoral_va[sector] = (base_va *
+                                   (1 + productivity_growth) ** years_elapsed *
+                                   gdp_scaling *
+                                   scenario_factor)
+
         return sectoral_va
 
     def calculate_household_income_expenditure(self, year, scenario, macroeconomy):
@@ -987,21 +1059,22 @@ class EnhancedItalianDynamicSimulation:
         Calculate household income and expenditure by macro-region
         """
         years_elapsed = year - self.base_year
-        
+
         household_income = {}
         household_expenditure = {}
-        
+
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             base_income = self.base_data['household_income'][region]
             base_expenditure = self.base_data['household_expenditure'][region]
-            
+
             # Scale with regional GDP growth
-            regional_gdp_growth = macroeconomy['real_gdp_regional'][region] / self.base_data['gdp_regional'][region]
-            
+            regional_gdp_growth = macroeconomy['real_gdp_regional'][region] / \
+                self.base_data['gdp_regional'][region]
+
             # Apply scenario-specific effects
             income_scenario_effect = 1.0
             expenditure_scenario_effect = 1.0
-            
+
             if scenario == 'ETS1' and year >= 2021:
                 # Industrial carbon pricing affects household income differently by region
                 if region in ['Northwest', 'Northeast']:  # Industrial regions
@@ -1009,7 +1082,7 @@ class EnhancedItalianDynamicSimulation:
                     expenditure_scenario_effect = 1.002  # Higher energy costs
                 else:
                     income_scenario_effect = 1.003  # Green job creation
-                    
+
             elif scenario == 'ETS2' and year >= 2027:
                 # Buildings & transport carbon pricing affects all regions
                 expenditure_scenario_effect = 1.005  # Higher transport/heating costs
@@ -1017,20 +1090,20 @@ class EnhancedItalianDynamicSimulation:
                     income_scenario_effect = 1.002  # Green renovation jobs
                 else:
                     income_scenario_effect = 0.999  # Energy cost burden
-            
-            household_income[region] = (base_income * 
-                                      regional_gdp_growth * 
-                                      income_scenario_effect)
-            
-            household_expenditure[region] = (base_expenditure * 
-                                           regional_gdp_growth * 
-                                           expenditure_scenario_effect)
-        
+
+            household_income[region] = (base_income *
+                                        regional_gdp_growth *
+                                        income_scenario_effect)
+
+            household_expenditure[region] = (base_expenditure *
+                                             regional_gdp_growth *
+                                             expenditure_scenario_effect)
+
         return {
             'income': household_income,
             'expenditure': household_expenditure,
-            'savings': {region: household_income[region] - household_expenditure[region] 
-                                for region in household_income.keys()}
+            'savings': {region: household_income[region] - household_expenditure[region]
+                        for region in household_income.keys()}
         }
 
     def calculate_energy_demand(self, year, scenario, macroeconomy, sectoral_va):
@@ -1038,43 +1111,49 @@ class EnhancedItalianDynamicSimulation:
         Calculate annual final energy demand by sector and households (MWh, disaggregated by carrier)
         """
         years_elapsed = year - self.base_year
-        
+
         # Energy efficiency improvement factor
-        efficiency_factor = (1 - self.assumptions['energy_efficiency_improvement']) ** years_elapsed
-        
+        efficiency_factor = (
+            1 - self.assumptions['energy_efficiency_improvement']) ** years_elapsed
+
         # Electrification factor
-        electrification_factor = (1 + self.assumptions['electrification_rate']) ** years_elapsed
-        
+        electrification_factor = (
+            1 + self.assumptions['electrification_rate']) ** years_elapsed
+
         # Calculate sectoral energy demand
-        sectoral_energy = {carrier: {} for carrier in ['electricity', 'gas', 'other_energy']}
-        
+        sectoral_energy = {carrier: {}
+                           for carrier in ['electricity', 'gas', 'other_energy']}
+
         for sector in ['Agriculture', 'Industry', 'Energy', 'Transport', 'Services']:
             # Scale with sectoral value added
             if sector in sectoral_va:
-                sector_scaling = sectoral_va[sector] / self.base_data['sectoral_value_added'][sector]
+                sector_scaling = sectoral_va[sector] / \
+                    self.base_data['sectoral_value_added'][sector]
             else:
                 sector_scaling = 1.0
-            
+
             for carrier in ['electricity', 'gas', 'other_energy']:
                 base_demand = self.base_data['energy_demand_sectoral'][carrier][sector]
-                
+
                 # Apply efficiency and electrification factors
                 if carrier == 'electricity':
                     demand_factor = efficiency_factor * electrification_factor
                 elif carrier == 'gas':
                     demand_factor = efficiency_factor / electrification_factor  # Gas declining
                 else:  # other_energy (renewables, etc.)
-                    demand_factor = efficiency_factor * (1 + self.assumptions['renewable_share_growth']) ** years_elapsed
-                
+                    demand_factor = efficiency_factor * \
+                        (1 +
+                         self.assumptions['renewable_share_growth']) ** years_elapsed
+
                 # Apply scenario-specific effects
                 scenario_factor = 1.0
-                
+
                 if scenario == 'ETS1' and year >= 2021:
                     if sector in ['Industry', 'Energy'] and carrier == 'gas':
                         scenario_factor = 0.985  # Industrial gas reduction
                     elif sector in ['Industry', 'Energy'] and carrier == 'electricity':
                         scenario_factor = 1.015  # Industrial electrification
-                        
+
                 elif scenario == 'ETS2' and year >= 2027:
                     if sector == 'Transport':
                         if carrier == 'electricity':
@@ -1083,59 +1162,65 @@ class EnhancedItalianDynamicSimulation:
                             scenario_factor = 0.975  # Less gas in transport
                     elif sector == 'Services' and carrier == 'gas':
                         scenario_factor = 0.980  # Building heating transition
-                
-                sectoral_energy[carrier][sector] = (base_demand * 
-                                                  sector_scaling * 
-                                                  demand_factor * 
-                                                  scenario_factor)
-        
+
+                sectoral_energy[carrier][sector] = (base_demand *
+                                                    sector_scaling *
+                                                    demand_factor *
+                                                    scenario_factor)
+
         # Calculate household energy demand by region
-        household_energy = {carrier: {} for carrier in ['electricity', 'gas', 'other_energy']}
-        
+        household_energy = {carrier: {}
+                            for carrier in ['electricity', 'gas', 'other_energy']}
+
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             # Scale with regional economic growth
-            regional_scaling = macroeconomy['real_gdp_regional'][region] / self.base_data['gdp_regional'][region]
-            
+            regional_scaling = macroeconomy['real_gdp_regional'][region] / \
+                self.base_data['gdp_regional'][region]
+
             for carrier in ['electricity', 'gas', 'other_energy']:
                 base_demand = self.base_data['household_energy_demand'][carrier][region]
-                
+
                 # Apply household-specific factors
                 if carrier == 'electricity':
-                    demand_factor = efficiency_factor * (1 + 0.03) ** years_elapsed  # Household electrification
+                    demand_factor = efficiency_factor * \
+                        (1 + 0.03) ** years_elapsed  # Household electrification
                 elif carrier == 'gas':
-                    demand_factor = efficiency_factor * (1 - 0.025) ** years_elapsed  # Household gas decline
+                    demand_factor = efficiency_factor * \
+                        (1 - 0.025) ** years_elapsed  # Household gas decline
                 else:  # other_energy
-                    demand_factor = efficiency_factor * (1 + 0.02) ** years_elapsed  # Household renewables
-                
+                    demand_factor = efficiency_factor * \
+                        (1 + 0.02) ** years_elapsed  # Household renewables
+
                 # Apply scenario effects
                 scenario_factor = 1.0
-                
+
                 if scenario == 'ETS1' and year >= 2021:
                     # Industrial carbon pricing has limited household impact
                     if carrier == 'electricity':
                         scenario_factor = 1.005  # Slight increase due to industrial electrification
-                        
+
                 elif scenario == 'ETS2' and year >= 2027:
                     # Buildings carbon pricing directly affects households
                     if carrier == 'electricity':
                         scenario_factor = 1.025  # Heat pump adoption
                     elif carrier == 'gas':
                         scenario_factor = 0.970  # Reduced gas heating
-                
-                household_energy[carrier][region] = (base_demand * 
-                                                   regional_scaling * 
-                                                   demand_factor * 
-                                                   scenario_factor)
-        
+
+                household_energy[carrier][region] = (base_demand *
+                                                     regional_scaling *
+                                                     demand_factor *
+                                                     scenario_factor)
+
         # Calculate totals
         energy_totals = {}
         for carrier in ['electricity', 'gas', 'other_energy']:
             sectoral_total = sum(sectoral_energy[carrier].values())
             household_total = sum(household_energy[carrier].values())
-            energy_totals[f'{carrier}_total'] = sectoral_total + household_total
+            energy_totals[f'{carrier}_total'] = sectoral_total + \
+                household_total
             energy_totals[f'{carrier}_sectoral_total'] = sectoral_total
             energy_totals[f'{carrier}_household_total'] = household_total
-        
+
         return {
             'sectoral_energy': sectoral_energy,
             'household_energy': household_energy,
@@ -1145,51 +1230,61 @@ class EnhancedItalianDynamicSimulation:
     def calculate_carbon_policy(self, year, scenario):
         """
         Calculate CO2 price levels (ETS1 and ETS2) and total carbon tax/ETS revenues
+        ALIGNED WITH energy_environment_block.py for accurate carbon pricing
         """
         years_from_base = year - self.base_year
-        
+
         # Initialize carbon prices
         ets1_price = 0.0
         ets2_price = 0.0
         total_revenue = 0.0
-        
+        ets1_revenue = 0.0
+        ets2_revenue = 0.0
+
         if scenario == 'ETS1' and year >= 2021:
             # ETS1: Industrial carbon pricing from 2021
-            ets1_price = (self.assumptions['carbon_prices']['ets1_initial'] * 
-                         (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_from_base)
-            
+            # Continuous growth from base year (aligned with energy_environment_block.py)
+            ets1_price = (self.assumptions['carbon_prices']['ets1_initial'] *
+                          (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_from_base)
+
             # Estimate ETS1 revenue (billion EUR)
             # Based on industrial emissions coverage (~60% of total emissions)
-            industrial_emissions = self.base_data['co2_emissions_total'] * 0.6  # Mt CO2
+            # Mt CO2
+            industrial_emissions = self.base_data['co2_emissions_total'] * 0.6
             # Assume 85% of emissions are covered by ETS1
             covered_emissions = industrial_emissions * 0.85
-            total_revenue = (covered_emissions * ets1_price) / 1000  # billion EUR
-            
+            total_revenue = (covered_emissions * ets1_price) / \
+                1000  # billion EUR
+            ets1_revenue = total_revenue
+
         elif scenario == 'ETS2' and year >= 2027:
             # ETS2: Buildings & Transport carbon pricing from 2027
+            # ALIGNED WITH energy_environment_block.py - continuous growth, no hardcoded jump
+
+            # ETS1 continues with continuous growth from 2021 base year
+            ets1_price = (self.assumptions['carbon_prices']['ets1_initial'] *
+                          (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_from_base)
+
+            # ETS2 starts in 2027 with its own growth trajectory
             years_from_2027 = year - 2027
-            
-            # Continue ETS1 with higher prices due to expanded coverage
-            ets1_price = (134.0 * (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_from_2027)
-            
-            # New ETS2 for buildings and transport
-            ets2_price = (self.assumptions['carbon_prices']['ets2_initial'] * 
-                         (1 + self.assumptions['carbon_prices']['ets2_growth_rate']) ** years_from_2027)
-            
+            ets2_price = (self.assumptions['carbon_prices']['ets2_initial'] *
+                          (1 + self.assumptions['carbon_prices']['ets2_growth_rate']) ** years_from_2027)
+
             # Estimate total revenue
             industrial_emissions = self.base_data['co2_emissions_total'] * 0.6
             buildings_transport_emissions = self.base_data['co2_emissions_total'] * 0.35
-            
+
             ets1_revenue = (industrial_emissions * 0.85 * ets1_price) / 1000
-            ets2_revenue = (buildings_transport_emissions * 0.70 * ets2_price) / 1000
+            ets2_revenue = (buildings_transport_emissions *
+                            0.70 * ets2_price) / 1000
             total_revenue = ets1_revenue + ets2_revenue
-        
+
         return {
             'ets1_price': ets1_price,      # EUR/tCO2
             'ets2_price': ets2_price,      # EUR/tCO2
-            'total_revenue': total_revenue, # billion EUR
-            'ets1_revenue': ets1_revenue if scenario == 'ETS2' and year >= 2027 else total_revenue,
-            'ets2_revenue': ets2_revenue if scenario == 'ETS2' and year >= 2027 else 0.0
+            'total_revenue': total_revenue,  # billion EUR
+            'ets1_revenue': ets1_revenue,
+            'ets2_revenue': ets2_revenue
         }
 
     def calculate_trade(self, year, scenario, sectoral_va, macroeconomy):
@@ -1197,59 +1292,60 @@ class EnhancedItalianDynamicSimulation:
         Calculate exports and imports by sector
         """
         years_elapsed = year - self.base_year
-        
+
         exports = {}
         imports = {}
-        
+
         # Global trade growth assumption
         global_trade_growth = 0.025  # 2.5% annual growth
         trade_factor = (1 + global_trade_growth) ** years_elapsed
-        
+
         # Calculate by sector
         for sector in ['Agriculture', 'Industry', 'Energy', 'Transport', 'Services']:
             # Scale with sectoral value added
             if sector in sectoral_va:
-                sector_scaling = sectoral_va[sector] / self.base_data['sectoral_value_added'][sector]
+                sector_scaling = sectoral_va[sector] / \
+                    self.base_data['sectoral_value_added'][sector]
             else:
                 sector_scaling = 1.0
-            
+
             # Base trade values
             base_exports = self.base_data['exports'][sector]
             base_imports = self.base_data['imports'][sector]
-            
+
             # Apply scenario effects
             export_scenario_factor = 1.0
             import_scenario_factor = 1.0
-            
+
             if scenario == 'ETS1' and year >= 2021:
                 if sector == 'Industry':
                     export_scenario_factor = 0.995  # Carbon costs reduce competitiveness
                     import_scenario_factor = 1.008  # More competitive imports
                 elif sector == 'Energy':
                     import_scenario_factor = 0.990  # Less fossil fuel imports
-                    
+
             elif scenario == 'ETS2' and year >= 2027:
                 if sector == 'Transport':
                     export_scenario_factor = 1.005  # Green transport technology exports
                 elif sector == 'Energy':
                     export_scenario_factor = 1.015  # Renewable technology exports
                     import_scenario_factor = 0.985  # Less fossil fuel imports
-            
-            exports[sector] = (base_exports * 
-                             sector_scaling * 
-                             trade_factor * 
-                             export_scenario_factor)
-            
-            imports[sector] = (base_imports * 
-                             sector_scaling * 
-                             trade_factor * 
-                             import_scenario_factor)
-        
+
+            exports[sector] = (base_exports *
+                               sector_scaling *
+                               trade_factor *
+                               export_scenario_factor)
+
+            imports[sector] = (base_imports *
+                               sector_scaling *
+                               trade_factor *
+                               import_scenario_factor)
+
         # Calculate totals and trade balance
         total_exports = sum(exports.values())
         total_imports = sum(imports.values())
         trade_balance = total_exports - total_imports
-        
+
         return {
             'exports': exports,
             'imports': imports,
@@ -1263,29 +1359,29 @@ class EnhancedItalianDynamicSimulation:
         Calculate employment, unemployment, and labor force indicators by region
         """
         years_elapsed = year - self.base_year
-        
+
         # Labor force growth assumptions (based on demographic trends)
         labor_force_growth_regional = {
             'Northwest': -0.002,   # -0.2% annual (aging population)
-            'Northeast': -0.001,   # -0.1% annual 
+            'Northeast': -0.001,   # -0.1% annual
             'Centre': 0.001,       # 0.1% annual (stable)
             'South': 0.003,        # 0.3% annual (young population)
             'Islands': 0.002       # 0.2% annual
         }
-        
+
         # Employment growth linked to GDP growth
         employment_regional = {}
         labor_force_regional = {}
         unemployment_rate_regional = {}
-        
+
         total_employment = 0
         total_labor_force = 0
-        
+
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             # Calculate labor force
             lf_growth = labor_force_growth_regional[region]
             base_lf = self.base_data['labor_force_regional'][region]
-            
+
             # Apply scenario effects
             scenario_lf_factor = 1.0
             if scenario == 'ETS1' and year >= 2021:
@@ -1293,36 +1389,37 @@ class EnhancedItalianDynamicSimulation:
                     scenario_lf_factor = 0.999  # Slight industrial job losses
             elif scenario == 'ETS2' and year >= 2027:
                 scenario_lf_factor = 1.001  # Green jobs expansion
-            
-            labor_force_regional[region] = (base_lf * 
-                                          (1 + lf_growth) ** years_elapsed * 
-                                          scenario_lf_factor)
-            
+
+            labor_force_regional[region] = (base_lf *
+                                            (1 + lf_growth) ** years_elapsed *
+                                            scenario_lf_factor)
+
             # Calculate employment (linked to regional GDP growth)
             base_employment = self.base_data['employment_regional'][region]
-            regional_gdp_growth = ((macroeconomy['real_gdp_regional'][region] / 
-                                  self.base_data['gdp_regional'][region]) ** (1/max(1, years_elapsed)) - 1)
-            
+            regional_gdp_growth = ((macroeconomy['real_gdp_regional'][region] /
+                                    self.base_data['gdp_regional'][region]) ** (1/max(1, years_elapsed)) - 1)
+
             # Employment elasticity to GDP growth (varies by scenario)
             employment_elasticity = 0.6  # Base elasticity
             if scenario == 'ETS1' and year >= 2021:
                 employment_elasticity = 0.55  # Lower due to industrial automation
             elif scenario == 'ETS2' and year >= 2027:
                 employment_elasticity = 0.65  # Higher due to green job creation
-            
+
             employment_growth = regional_gdp_growth * employment_elasticity
-            employment_regional[region] = base_employment * (1 + employment_growth) ** years_elapsed
-            
+            employment_regional[region] = base_employment * \
+                (1 + employment_growth) ** years_elapsed
+
             # Calculate unemployment rate
-            unemployment_rate_regional[region] = max(0.02, 
-                1 - (employment_regional[region] / labor_force_regional[region]))
-            
+            unemployment_rate_regional[region] = max(0.02,
+                                                     1 - (employment_regional[region] / labor_force_regional[region]))
+
             total_employment += employment_regional[region]
             total_labor_force += labor_force_regional[region]
-        
+
         # National unemployment rate
         national_unemployment_rate = 1 - (total_employment / total_labor_force)
-        
+
         return {
             'employment_total': total_employment,
             'labor_force_total': total_labor_force,
@@ -1337,7 +1434,7 @@ class EnhancedItalianDynamicSimulation:
         Calculate population growth/decline by region
         """
         years_elapsed = year - self.base_year
-        
+
         # Population growth assumptions (based on ISTAT projections)
         population_growth_regional = {
             'Northwest': -0.001,    # -0.1% annual (slight decline)
@@ -1346,25 +1443,25 @@ class EnhancedItalianDynamicSimulation:
             'South': -0.005,        # -0.5% annual (emigration to North)
             'Islands': -0.003       # -0.3% annual (emigration)
         }
-        
+
         population_regional = {}
         total_population = 0
-        
+
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             growth_rate = population_growth_regional[region]
             base_population = self.base_data['population_regional'][region]
-            
+
             # Apply scenario effects (green transition may affect migration)
             scenario_factor = 1.0
             if scenario == 'ETS2' and year >= 2027:
                 if region in ['South', 'Islands']:  # Green energy investment regions
                     scenario_factor = 1.002  # Reduced emigration due to green jobs
-            
-            population_regional[region] = (base_population * 
-                                         (1 + growth_rate) ** years_elapsed * 
-                                         scenario_factor)
+
+            population_regional[region] = (base_population *
+                                           (1 + growth_rate) ** years_elapsed *
+                                           scenario_factor)
             total_population += population_regional[region]
-        
+
         return {
             'population_total': total_population,
             'population_regional': population_regional,
@@ -1376,39 +1473,41 @@ class EnhancedItalianDynamicSimulation:
         Calculate Total CO2 emissions (MtCO2) and CO2 intensity (tCO2/million EUR)
         """
         years_elapsed = year - self.base_year
-        
+
         # CO2 emission factors (kg CO2/MWh)
         co2_factors = {
             'electricity': 350.0,      # kg CO2/MWh (Italian grid average)
             'gas': 202.0,             # kg CO2/MWh for natural gas
             'other_energy': 267.0     # kg CO2/MWh for oil products
         }
-        
+
         # Calculate sectoral CO2 emissions
         co2_emissions_sectoral = {}
         total_sectoral_emissions = 0
-        
+
         for sector in ['Agriculture', 'Industry', 'Energy', 'Transport', 'Services']:
             sector_emissions = 0
-            
+
             # Calculate emissions from each energy carrier
             for carrier in ['electricity', 'gas', 'other_energy']:
                 energy_demand_mwh = energy['sectoral_energy'][carrier][sector]
                 emissions_kg = energy_demand_mwh * co2_factors[carrier]
                 emissions_mt = emissions_kg / 1e9  # Convert kg to MtCO2
                 sector_emissions += emissions_mt
-            
+
             # Apply scenario-specific emission reduction factors
             scenario_factor = 1.0
-            
+
             if scenario == 'ETS1' and year >= 2021:
                 # Industrial carbon pricing reduces emissions
                 if sector in ['Industry', 'Energy']:
                     # Progressive reduction based on carbon price
                     price_years = year - 2021
-                    reduction_factor = 1 - (0.015 * price_years)  # 1.5% annual reduction
-                    scenario_factor = max(0.7, reduction_factor)  # Cap at 30% reduction
-                    
+                    # 1.5% annual reduction
+                    reduction_factor = 1 - (0.015 * price_years)
+                    # Cap at 30% reduction
+                    scenario_factor = max(0.7, reduction_factor)
+
             elif scenario == 'ETS2' and year >= 2027:
                 # Comprehensive carbon pricing affects all sectors
                 price_years = year - 2027
@@ -1416,62 +1515,73 @@ class EnhancedItalianDynamicSimulation:
                     # Continued ETS1 impact plus additional reduction
                     ets1_years = year - 2021
                     ets1_reduction = 1 - (0.015 * ets1_years)
-                    ets2_additional = 1 - (0.008 * price_years)  # Additional 0.8% annual
-                    scenario_factor = max(0.5, ets1_reduction * ets2_additional)
+                    # Additional 0.8% annual
+                    ets2_additional = 1 - (0.008 * price_years)
+                    scenario_factor = max(
+                        0.5, ets1_reduction * ets2_additional)
                 elif sector in ['Transport', 'Services']:
                     # New ETS2 sectors
-                    reduction_factor = 1 - (0.012 * price_years)  # 1.2% annual reduction
+                    # 1.2% annual reduction
+                    reduction_factor = 1 - (0.012 * price_years)
                     scenario_factor = max(0.6, reduction_factor)
                 elif sector == 'Agriculture':
                     # Indirect benefits from green transition
-                    reduction_factor = 1 - (0.005 * price_years)  # 0.5% annual reduction
+                    # 0.5% annual reduction
+                    reduction_factor = 1 - (0.005 * price_years)
                     scenario_factor = max(0.85, reduction_factor)
-            
+
             # Apply energy efficiency improvements (additional to energy demand reductions)
-            efficiency_factor = (1 - 0.01) ** years_elapsed  # 1% annual CO2 intensity improvement
-            
-            co2_emissions_sectoral[sector] = sector_emissions * scenario_factor * efficiency_factor
+            # 1% annual CO2 intensity improvement
+            efficiency_factor = (1 - 0.01) ** years_elapsed
+
+            co2_emissions_sectoral[sector] = sector_emissions * \
+                scenario_factor * efficiency_factor
             total_sectoral_emissions += co2_emissions_sectoral[sector]
-        
+
         # Calculate household CO2 emissions by region
         co2_emissions_households = {}
         total_household_emissions = 0
-        
+
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             region_emissions = 0
-            
+
             # Calculate emissions from household energy consumption
             for carrier in ['electricity', 'gas', 'other_energy']:
                 energy_demand_mwh = energy['household_energy'][carrier][region]
                 emissions_kg = energy_demand_mwh * co2_factors[carrier]
                 emissions_mt = emissions_kg / 1e9  # Convert kg to MtCO2
                 region_emissions += emissions_mt
-            
+
             # Apply scenario-specific household emission reductions
             household_scenario_factor = 1.0
-            
+
             if scenario == 'ETS1' and year >= 2021:
                 # Limited household impact from industrial carbon pricing
                 household_scenario_factor = 0.998  # 0.2% annual reduction from spillovers
-                
+
             elif scenario == 'ETS2' and year >= 2027:
                 # Direct impact on household emissions
                 price_years = year - 2027
-                reduction_factor = 1 - (0.020 * price_years)  # 2% annual reduction
-                household_scenario_factor = max(0.6, reduction_factor)  # Cap at 40% reduction
-            
+                # 2% annual reduction
+                reduction_factor = 1 - (0.020 * price_years)
+                household_scenario_factor = max(
+                    0.6, reduction_factor)  # Cap at 40% reduction
+
             # Apply household energy efficiency improvements
-            household_efficiency = (1 - 0.015) ** years_elapsed  # 1.5% annual improvement
-            
-            co2_emissions_households[region] = region_emissions * household_scenario_factor * household_efficiency
+            # 1.5% annual improvement
+            household_efficiency = (1 - 0.015) ** years_elapsed
+
+            co2_emissions_households[region] = region_emissions * \
+                household_scenario_factor * household_efficiency
             total_household_emissions += co2_emissions_households[region]
-        
+
         # Total CO2 emissions
         total_co2_emissions = total_sectoral_emissions + total_household_emissions
-        
+
         # CO2 intensity (tCO2/million EUR GDP)
-        co2_intensity = (total_co2_emissions * 1000) / macroeconomy['real_gdp_total']  # Convert MtCO2 to tCO2
-        
+        co2_intensity = (total_co2_emissions * 1000) / \
+            macroeconomy['real_gdp_total']  # Convert MtCO2 to tCO2
+
         return {
             'total_co2_emissions': total_co2_emissions,  # MtCO2
             'co2_intensity': co2_intensity,              # tCO2/million EUR
@@ -1486,7 +1596,7 @@ class EnhancedItalianDynamicSimulation:
         Calculate renewable energy investment by macro-region
         """
         years_elapsed = year - self.base_year
-        
+
         # Base renewable investment growth rates by region
         renewable_growth_regional = {
             'Northwest': 0.08,     # 8% annual (industrial efficiency)
@@ -1495,18 +1605,18 @@ class EnhancedItalianDynamicSimulation:
             'South': 0.12,         # 12% annual (large solar potential)
             'Islands': 0.15        # 15% annual (energy independence)
         }
-        
+
         renewable_investment_regional = {}
         total_renewable_investment = 0
-        
+
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             base_investment = self.base_data['renewable_investment_regional'][region]
             growth_rate = renewable_growth_regional[region]
-            
+
             # Scale with regional economic capacity
-            regional_gdp_factor = (macroeconomy['real_gdp_regional'][region] / 
-                                 self.base_data['gdp_regional'][region])
-            
+            regional_gdp_factor = (macroeconomy['real_gdp_regional'][region] /
+                                   self.base_data['gdp_regional'][region])
+
             # Apply scenario-specific acceleration
             scenario_acceleration = 1.0
             if scenario == 'ETS1' and year >= 2021:
@@ -1515,25 +1625,26 @@ class EnhancedItalianDynamicSimulation:
                 scenario_acceleration = 1.4  # 40% boost from comprehensive carbon pricing
                 if region in ['South', 'Islands']:  # Extra boost for southern regions
                     scenario_acceleration = 1.6
-            
-            renewable_investment_regional[region] = (base_investment * 
-                                                   (1 + growth_rate) ** years_elapsed * 
-                                                   regional_gdp_factor * 
-                                                   scenario_acceleration)
-            
+
+            renewable_investment_regional[region] = (base_investment *
+                                                     (1 + growth_rate) ** years_elapsed *
+                                                     regional_gdp_factor *
+                                                     scenario_acceleration)
+
             total_renewable_investment += renewable_investment_regional[region]
-        
+
         # Calculate renewable capacity additions (MW) - simplified conversion
         renewable_capacity_additions_regional = {}
         for region, investment in renewable_investment_regional.items():
             # Assume 1.5 million EUR per MW capacity (average across technologies)
             renewable_capacity_additions_regional[region] = investment / 1.5
-        
+
         return {
             'renewable_investment_total': total_renewable_investment,
             'renewable_investment_regional': renewable_investment_regional,
             'renewable_capacity_additions_regional': renewable_capacity_additions_regional,
-            'renewable_investment_share_gdp': total_renewable_investment / macroeconomy['real_gdp_total'] * 100  # %
+            # %
+            'renewable_investment_share_gdp': total_renewable_investment / macroeconomy['real_gdp_total'] * 100
         }
 
     def run_scenario(self, scenario):
@@ -1541,30 +1652,32 @@ class EnhancedItalianDynamicSimulation:
         Run complete simulation for one scenario
         """
         print(f"\nRunning {scenario} scenario...")
-        
+
         results = []
-        
+
         # Define scenario years
         if scenario == 'ETS2':
             # ETS2 starts from 2027
             scenario_years = [year for year in self.years if year >= 2027]
         else:
             scenario_years = self.years
-        
+
         previous_year_data = None
-        
+
         for year in scenario_years:
             print(f"  {year}...", end=' ')
-            
+
             try:
                 # Solve dynamic CGE equilibrium using IPOPT
                 if IPOPT_AVAILABLE:
-                    year_solution = self.solve_dynamic_cge_with_ipopt(year, scenario, previous_year_data)
+                    year_solution = self.solve_dynamic_cge_with_ipopt(
+                        year, scenario, previous_year_data)
                     solver_method = "IPOPT"
                 else:
-                    year_solution = self.calculate_analytical_approximation(year, scenario, previous_year_data)
+                    year_solution = self.calculate_analytical_approximation(
+                        year, scenario, previous_year_data)
                     solver_method = "Analytical"
-                
+
                 # Extract components from solution
                 macroeconomy = year_solution['macroeconomy']
                 sectoral_va = year_solution['sectoral_value_added']
@@ -1576,7 +1689,7 @@ class EnhancedItalianDynamicSimulation:
                 labor_market = year_solution['labor_market']
                 demographics = year_solution['demographics']
                 renewable_investment = year_solution['renewable_investment']
-                
+
                 # Store results with solver info
                 year_result = {
                     'year': year,
@@ -1594,16 +1707,16 @@ class EnhancedItalianDynamicSimulation:
                     'solver_method': solver_method,
                     'solver_status': year_solution.get('solver_status', 'unknown')
                 }
-                
+
                 # Store for next year's calculation
                 previous_year_data = year_result
-                
+
                 results.append(year_result)
                 print("OK")
-                
+
             except Exception as e:
                 print(f"Error: {str(e)}")
-        
+
         print(f"  {scenario} completed: {len(results)}/{len(scenario_years)} years")
         return results
 
@@ -1613,18 +1726,18 @@ class EnhancedItalianDynamicSimulation:
         """
         print("\nRUNNING ENHANCED DYNAMIC SIMULATION")
         print("="*50)
-        
+
         all_results = {}
-        
+
         # Run BAU scenario (2021-2050)
         all_results['BAU'] = self.run_scenario('BAU')
-        
+
         # Run ETS1 scenario (2021-2050)
         all_results['ETS1'] = self.run_scenario('ETS1')
-        
+
         # Run ETS2 scenario (2027-2050)
         all_results['ETS2'] = self.run_scenario('ETS2')
-        
+
         return all_results
 
     def export_results_to_excel(self, results):
@@ -1633,20 +1746,20 @@ class EnhancedItalianDynamicSimulation:
         """
         print("\nEXPORTING RESULTS TO EXCEL")
         print("="*40)
-        
+
         # Create results directory
         results_dir = "results"
         os.makedirs(results_dir, exist_ok=True)
-        
+
         # Generate filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         excel_file = f"{results_dir}/Italian_CGE_Enhanced_Dynamic_Results_{timestamp}.xlsx"
-        
+
         with pd.ExcelWriter(excel_file, engine='openpyxl') as writer:
-            
+
             # 1. MACROECONOMY INDICATORS
             print("  Macroeconomy indicators...")
-            
+
             # Real GDP
             gdp_data = []
             for scenario, scenario_results in results.items():
@@ -1661,12 +1774,12 @@ class EnhancedItalianDynamicSimulation:
                     for region, gdp in result['macroeconomy']['real_gdp_regional'].items():
                         row[f'Real_GDP_{region}_Billion_EUR'] = gdp
                     gdp_data.append(row)
-            
+
             gdp_df = pd.DataFrame(gdp_data)
-            gdp_pivot = gdp_df.pivot_table(index='Year', columns='Scenario', 
-                                         values=['Real_GDP_Total_Billion_EUR', 'GDP_Per_Capita_Thousand_EUR'])
+            gdp_pivot = gdp_df.pivot_table(index='Year', columns='Scenario',
+                                           values=['Real_GDP_Total_Billion_EUR', 'GDP_Per_Capita_Thousand_EUR'])
             gdp_pivot.to_excel(writer, sheet_name='Macroeconomy_GDP')
-            
+
             # CPI and PPI
             price_indices_data = []
             for scenario, scenario_results in results.items():
@@ -1677,15 +1790,16 @@ class EnhancedItalianDynamicSimulation:
                         'CPI': result['macroeconomy']['cpi'],
                         'PPI': result['macroeconomy']['ppi']
                     })
-            
+
             price_indices_df = pd.DataFrame(price_indices_data)
-            price_indices_pivot = price_indices_df.pivot_table(index='Year', columns='Scenario', 
-                                                             values=['CPI', 'PPI'])
-            price_indices_pivot.to_excel(writer, sheet_name='Macroeconomy_Price_Indices')
-            
+            price_indices_pivot = price_indices_df.pivot_table(index='Year', columns='Scenario',
+                                                               values=['CPI', 'PPI'])
+            price_indices_pivot.to_excel(
+                writer, sheet_name='Macroeconomy_Price_Indices')
+
             # 2. PRODUCTION - VALUE ADDED BY SECTOR
             print("  Sectoral value added...")
-            
+
             va_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1693,15 +1807,15 @@ class EnhancedItalianDynamicSimulation:
                     for sector, va in result['sectoral_value_added'].items():
                         row[f'VA_{sector}_Billion_EUR'] = va
                     va_data.append(row)
-            
+
             va_df = pd.DataFrame(va_data)
-            va_pivot = va_df.pivot_table(index='Year', columns='Scenario', 
-                                       values=[col for col in va_df.columns if 'VA_' in col])
+            va_pivot = va_df.pivot_table(index='Year', columns='Scenario',
+                                         values=[col for col in va_df.columns if 'VA_' in col])
             va_pivot.to_excel(writer, sheet_name='Production_Value_Added')
-            
+
             # 3. HOUSEHOLDS - INCOME AND EXPENDITURE BY REGION
             print("  Household income and expenditure...")
-            
+
             household_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1724,22 +1838,28 @@ class EnhancedItalianDynamicSimulation:
                             savings = income - expenditure
                             row[f'Savings_{region}_Billion_EUR'] = savings
                     household_data.append(row)
-            
+
             household_df = pd.DataFrame(household_data)
-            
+
             # Income sheet
-            income_cols = [col for col in household_df.columns if 'Income_' in col]
-            household_income_pivot = household_df.pivot_table(index='Year', columns='Scenario', values=income_cols)
-            household_income_pivot.to_excel(writer, sheet_name='Households_Income')
-            
+            income_cols = [
+                col for col in household_df.columns if 'Income_' in col]
+            household_income_pivot = household_df.pivot_table(
+                index='Year', columns='Scenario', values=income_cols)
+            household_income_pivot.to_excel(
+                writer, sheet_name='Households_Income')
+
             # Expenditure sheet
-            expenditure_cols = [col for col in household_df.columns if 'Expenditure_' in col]
-            household_exp_pivot = household_df.pivot_table(index='Year', columns='Scenario', values=expenditure_cols)
-            household_exp_pivot.to_excel(writer, sheet_name='Households_Expenditure')
-            
+            expenditure_cols = [
+                col for col in household_df.columns if 'Expenditure_' in col]
+            household_exp_pivot = household_df.pivot_table(
+                index='Year', columns='Scenario', values=expenditure_cols)
+            household_exp_pivot.to_excel(
+                writer, sheet_name='Households_Expenditure')
+
             # 4. ENERGY - SECTORAL ENERGY DEMAND BY CARRIER
             print("  Sectoral energy demand...")
-            
+
             sectoral_energy_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1749,19 +1869,22 @@ class EnhancedItalianDynamicSimulation:
                         for sector, demand in result['energy']['sectoral_energy'][carrier].items():
                             row[f'{carrier.title()}_{sector}_MWh'] = demand
                     sectoral_energy_data.append(row)
-            
+
             sectoral_energy_df = pd.DataFrame(sectoral_energy_data)
-            
+
             # Create separate sheets for each carrier
             for carrier in ['Electricity', 'Gas', 'Other_Energy']:
-                carrier_cols = [col for col in sectoral_energy_df.columns if col.startswith(carrier)]
+                carrier_cols = [
+                    col for col in sectoral_energy_df.columns if col.startswith(carrier)]
                 if carrier_cols:
-                    carrier_pivot = sectoral_energy_df.pivot_table(index='Year', columns='Scenario', values=carrier_cols)
-                    carrier_pivot.to_excel(writer, sheet_name=f'Energy_Sectoral_{carrier}')
-            
+                    carrier_pivot = sectoral_energy_df.pivot_table(
+                        index='Year', columns='Scenario', values=carrier_cols)
+                    carrier_pivot.to_excel(
+                        writer, sheet_name=f'Energy_Sectoral_{carrier}')
+
             # 5. ENERGY - HOUSEHOLD ENERGY DEMAND BY REGION AND CARRIER
             print("  Household energy demand...")
-            
+
             household_energy_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1771,19 +1894,22 @@ class EnhancedItalianDynamicSimulation:
                         for region, demand in result['energy']['household_energy'][carrier].items():
                             row[f'{carrier.title()}_{region}_MWh'] = demand
                     household_energy_data.append(row)
-            
+
             household_energy_df = pd.DataFrame(household_energy_data)
-            
+
             # Create separate sheets for each carrier
             for carrier in ['Electricity', 'Gas', 'Other_Energy']:
-                carrier_cols = [col for col in household_energy_df.columns if col.startswith(carrier)]
+                carrier_cols = [
+                    col for col in household_energy_df.columns if col.startswith(carrier)]
                 if carrier_cols:
-                    carrier_pivot = household_energy_df.pivot_table(index='Year', columns='Scenario', values=carrier_cols)
-                    carrier_pivot.to_excel(writer, sheet_name=f'Energy_Household_{carrier}')
-            
+                    carrier_pivot = household_energy_df.pivot_table(
+                        index='Year', columns='Scenario', values=carrier_cols)
+                    carrier_pivot.to_excel(
+                        writer, sheet_name=f'Energy_Household_{carrier}')
+
             # 6. ENERGY TOTALS
             print("  Energy totals...")
-            
+
             energy_totals_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1791,89 +1917,100 @@ class EnhancedItalianDynamicSimulation:
                     for key, value in result['energy']['totals'].items():
                         row[key] = value
                     energy_totals_data.append(row)
-            
+
             energy_totals_df = pd.DataFrame(energy_totals_data)
-            energy_totals_pivot = energy_totals_df.pivot_table(index='Year', columns='Scenario', 
-                                                             values=[col for col in energy_totals_df.columns if col != 'Year' and col != 'Scenario'])
+            energy_totals_pivot = energy_totals_df.pivot_table(index='Year', columns='Scenario',
+                                                               values=[col for col in energy_totals_df.columns if col != 'Year' and col != 'Scenario'])
             energy_totals_pivot.to_excel(writer, sheet_name='Energy_Totals')
-            
+
             # 6B. REGIONAL TOTAL ENERGY DEMAND
             print("  Regional total energy demand...")
-            
+
             regional_energy_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
                     row = {'Year': result['year'], 'Scenario': scenario}
-                    
+
                     # Calculate total energy demand by region (all carriers combined)
                     for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
                         total_regional_demand = 0
-                        
+
                         # Sum across all energy carriers for this region
                         for carrier in ['electricity', 'gas', 'other_energy']:
                             regional_demand = result['energy']['household_energy'][carrier][region]
                             total_regional_demand += regional_demand
-                        
+
                         row[f'Total_Energy_{region}_MWh'] = total_regional_demand
                         row[f'Total_Energy_{region}_TWh'] = total_regional_demand / 1000000
-                    
+
                     # Calculate national total
-                    national_total = sum(row[f'Total_Energy_{region}_MWh'] for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
+                    national_total = sum(row[f'Total_Energy_{region}_MWh'] for region in [
+                                         'Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
                     row['Total_Energy_National_MWh'] = national_total
                     row['Total_Energy_National_TWh'] = national_total / 1000000
-                    
+
                     regional_energy_data.append(row)
-            
+
             regional_energy_df = pd.DataFrame(regional_energy_data)
-            
+
             # Create pivot table for regional energy demand
-            regional_energy_cols = [col for col in regional_energy_df.columns if col.startswith('Total_Energy_')]
-            regional_energy_pivot = regional_energy_df.pivot_table(index='Year', columns='Scenario', values=regional_energy_cols)
-            regional_energy_pivot.to_excel(writer, sheet_name='Energy_Regional_Totals')
+            regional_energy_cols = [
+                col for col in regional_energy_df.columns if col.startswith('Total_Energy_')]
+            regional_energy_pivot = regional_energy_df.pivot_table(
+                index='Year', columns='Scenario', values=regional_energy_cols)
+            regional_energy_pivot.to_excel(
+                writer, sheet_name='Energy_Regional_Totals')
 
             # 6C. HOUSEHOLD ENERGY DEMAND BY REGION AND CARRIER (DETAILED)
             print("  Household energy demand by region and carrier...")
-            
+
             household_energy_detailed_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
                     row = {'Year': result['year'], 'Scenario': scenario}
-                    
+
                     # Add individual carrier demand by region
                     for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
                         for carrier in ['electricity', 'gas', 'other_energy']:
                             carrier_demand = result['energy']['household_energy'][carrier][region]
                             row[f'{region}_{carrier.title()}_MWh'] = carrier_demand
                             row[f'{region}_{carrier.title()}_TWh'] = carrier_demand / 1000000
-                        
+
                         # Regional total
-                        regional_total = sum(result['energy']['household_energy'][carrier][region] for carrier in ['electricity', 'gas', 'other_energy'])
+                        regional_total = sum(result['energy']['household_energy'][carrier][region] for carrier in [
+                                             'electricity', 'gas', 'other_energy'])
                         row[f'{region}_Total_MWh'] = regional_total
                         row[f'{region}_Total_TWh'] = regional_total / 1000000
-                    
+
                     # National totals by carrier
                     for carrier in ['electricity', 'gas', 'other_energy']:
-                        national_carrier_total = sum(result['energy']['household_energy'][carrier][region] for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
+                        national_carrier_total = sum(result['energy']['household_energy'][carrier][region] for region in [
+                                                     'Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
                         row[f'National_{carrier.title()}_MWh'] = national_carrier_total
                         row[f'National_{carrier.title()}_TWh'] = national_carrier_total / 1000000
-                    
+
                     # Grand national total
-                    grand_national_total = sum(sum(result['energy']['household_energy'][carrier][region] for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']) for carrier in ['electricity', 'gas', 'other_energy'])
+                    grand_national_total = sum(sum(result['energy']['household_energy'][carrier][region] for region in [
+                                               'Northwest', 'Northeast', 'Centre', 'South', 'Islands']) for carrier in ['electricity', 'gas', 'other_energy'])
                     row['National_Total_MWh'] = grand_national_total
                     row['National_Total_TWh'] = grand_national_total / 1000000
-                    
+
                     household_energy_detailed_data.append(row)
-            
-            household_energy_detailed_df = pd.DataFrame(household_energy_detailed_data)
-            
+
+            household_energy_detailed_df = pd.DataFrame(
+                household_energy_detailed_data)
+
             # Create pivot table for detailed household energy demand by region and carrier
-            household_energy_detailed_cols = [col for col in household_energy_detailed_df.columns if col not in ['Year', 'Scenario']]
-            household_energy_detailed_pivot = household_energy_detailed_df.pivot_table(index='Year', columns='Scenario', values=household_energy_detailed_cols)
-            household_energy_detailed_pivot.to_excel(writer, sheet_name='Household_Energy_by_Region')
-            
+            household_energy_detailed_cols = [
+                col for col in household_energy_detailed_df.columns if col not in ['Year', 'Scenario']]
+            household_energy_detailed_pivot = household_energy_detailed_df.pivot_table(
+                index='Year', columns='Scenario', values=household_energy_detailed_cols)
+            household_energy_detailed_pivot.to_excel(
+                writer, sheet_name='Household_Energy_by_Region')
+
             # 7. CLIMATE POLICY - CO2 PRICES AND REVENUES
             print("  Carbon policy...")
-            
+
             carbon_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1886,16 +2023,16 @@ class EnhancedItalianDynamicSimulation:
                         'ETS1_Revenue_Billion_EUR': result['carbon_policy']['ets1_revenue'],
                         'ETS2_Revenue_Billion_EUR': result['carbon_policy']['ets2_revenue']
                     })
-            
+
             carbon_df = pd.DataFrame(carbon_data)
-            carbon_pivot = carbon_df.pivot_table(index='Year', columns='Scenario', 
-                                               values=['ETS1_Price_EUR_per_tCO2', 'ETS2_Price_EUR_per_tCO2', 
-                                                      'Total_Revenue_Billion_EUR', 'ETS1_Revenue_Billion_EUR', 'ETS2_Revenue_Billion_EUR'])
+            carbon_pivot = carbon_df.pivot_table(index='Year', columns='Scenario',
+                                                 values=['ETS1_Price_EUR_per_tCO2', 'ETS2_Price_EUR_per_tCO2',
+                                                         'Total_Revenue_Billion_EUR', 'ETS1_Revenue_Billion_EUR', 'ETS2_Revenue_Billion_EUR'])
             carbon_pivot.to_excel(writer, sheet_name='Climate_Policy')
-            
+
             # 7B. CO2 EMISSIONS - TOTAL AND INTENSITY
             print("  CO2 emissions and intensity...")
-            
+
             co2_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1907,45 +2044,53 @@ class EnhancedItalianDynamicSimulation:
                         'Sectoral_Emissions_Total_MtCO2': result['co2_emissions']['sectoral_emissions_total'],
                         'Household_Emissions_Total_MtCO2': result['co2_emissions']['household_emissions_total']
                     }
-                    
+
                     # Add sectoral CO2 emissions
                     for sector, emissions in result['co2_emissions']['co2_emissions_sectoral'].items():
                         row[f'CO2_Emissions_{sector}_MtCO2'] = emissions
-                    
+
                     # Add regional household CO2 emissions
                     for region, emissions in result['co2_emissions']['co2_emissions_households'].items():
                         row[f'CO2_Emissions_Households_{region}_MtCO2'] = emissions
-                    
+
                     co2_data.append(row)
-            
+
             co2_df = pd.DataFrame(co2_data)
-            
+
             # Total CO2 emissions and intensity
-            co2_totals_cols = ['Total_CO2_Emissions_MtCO2', 'CO2_Intensity_tCO2_per_Million_EUR', 
-                              'Sectoral_Emissions_Total_MtCO2', 'Household_Emissions_Total_MtCO2']
-            co2_totals_pivot = co2_df.pivot_table(index='Year', columns='Scenario', values=co2_totals_cols)
-            co2_totals_pivot.to_excel(writer, sheet_name='CO2_Emissions_Totals')
-            
+            co2_totals_cols = ['Total_CO2_Emissions_MtCO2', 'CO2_Intensity_tCO2_per_Million_EUR',
+                               'Sectoral_Emissions_Total_MtCO2', 'Household_Emissions_Total_MtCO2']
+            co2_totals_pivot = co2_df.pivot_table(
+                index='Year', columns='Scenario', values=co2_totals_cols)
+            co2_totals_pivot.to_excel(
+                writer, sheet_name='CO2_Emissions_Totals')
+
             # Sectoral CO2 emissions
-            co2_sectoral_cols = [col for col in co2_df.columns if col.startswith('CO2_Emissions_') and col.endswith('_MtCO2') and 'Households' not in col and 'Total' not in col]
+            co2_sectoral_cols = [col for col in co2_df.columns if col.startswith(
+                'CO2_Emissions_') and col.endswith('_MtCO2') and 'Households' not in col and 'Total' not in col]
             if co2_sectoral_cols:
-                co2_sectoral_pivot = co2_df.pivot_table(index='Year', columns='Scenario', values=co2_sectoral_cols)
-                co2_sectoral_pivot.to_excel(writer, sheet_name='CO2_Emissions_Sectoral')
-            
+                co2_sectoral_pivot = co2_df.pivot_table(
+                    index='Year', columns='Scenario', values=co2_sectoral_cols)
+                co2_sectoral_pivot.to_excel(
+                    writer, sheet_name='CO2_Emissions_Sectoral')
+
             # Regional household CO2 emissions
-            co2_household_cols = [col for col in co2_df.columns if col.startswith('CO2_Emissions_Households_')]
+            co2_household_cols = [col for col in co2_df.columns if col.startswith(
+                'CO2_Emissions_Households_')]
             if co2_household_cols:
-                co2_household_pivot = co2_df.pivot_table(index='Year', columns='Scenario', values=co2_household_cols)
-                co2_household_pivot.to_excel(writer, sheet_name='CO2_Emissions_Households')
-            
+                co2_household_pivot = co2_df.pivot_table(
+                    index='Year', columns='Scenario', values=co2_household_cols)
+                co2_household_pivot.to_excel(
+                    writer, sheet_name='CO2_Emissions_Households')
+
             # 8. TRADE - EXPORTS AND IMPORTS
             print("  Trade...")
-            
+
             trade_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
                     row = {
-                        'Year': result['year'], 
+                        'Year': result['year'],
                         'Scenario': scenario,
                         'Total_Exports_Billion_EUR': result['trade']['total_exports'],
                         'Total_Imports_Billion_EUR': result['trade']['total_imports'],
@@ -1956,22 +2101,24 @@ class EnhancedItalianDynamicSimulation:
                         row[f'Exports_{sector}_Billion_EUR'] = result['trade']['exports'][sector]
                         row[f'Imports_{sector}_Billion_EUR'] = result['trade']['imports'][sector]
                     trade_data.append(row)
-            
+
             trade_df = pd.DataFrame(trade_data)
-            
+
             # Total trade
-            trade_totals_pivot = trade_df.pivot_table(index='Year', columns='Scenario', 
-                                                    values=['Total_Exports_Billion_EUR', 'Total_Imports_Billion_EUR', 'Trade_Balance_Billion_EUR'])
+            trade_totals_pivot = trade_df.pivot_table(index='Year', columns='Scenario',
+                                                      values=['Total_Exports_Billion_EUR', 'Total_Imports_Billion_EUR', 'Trade_Balance_Billion_EUR'])
             trade_totals_pivot.to_excel(writer, sheet_name='Trade_Totals')
-            
+
             # Sectoral trade
-            trade_sectoral_cols = [col for col in trade_df.columns if ('Exports_' in col or 'Imports_' in col) and 'Total_' not in col]
-            trade_sectoral_pivot = trade_df.pivot_table(index='Year', columns='Scenario', values=trade_sectoral_cols)
+            trade_sectoral_cols = [col for col in trade_df.columns if (
+                'Exports_' in col or 'Imports_' in col) and 'Total_' not in col]
+            trade_sectoral_pivot = trade_df.pivot_table(
+                index='Year', columns='Scenario', values=trade_sectoral_cols)
             trade_sectoral_pivot.to_excel(writer, sheet_name='Trade_Sectoral')
-            
+
             # 9. LABOR MARKET INDICATORS
             print("  Labor market indicators...")
-            
+
             labor_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -1986,29 +2133,39 @@ class EnhancedItalianDynamicSimulation:
                     for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
                         row[f'Employment_{region}_Millions'] = result['labor_market']['employment_regional'][region]
                         row[f'Labor_Force_{region}_Millions'] = result['labor_market']['labor_force_regional'][region]
-                        row[f'Unemployment_Rate_{region}_Percent'] = result['labor_market']['unemployment_rate_regional'][region] * 100
+                        row[f'Unemployment_Rate_{region}_Percent'] = result[
+                            'labor_market']['unemployment_rate_regional'][region] * 100
                     labor_data.append(row)
-            
+
             labor_df = pd.DataFrame(labor_data)
-            
+
             # National labor market
-            labor_national_cols = [col for col in labor_df.columns if 'National' in col or 'Total' in col]
-            labor_national_pivot = labor_df.pivot_table(index='Year', columns='Scenario', values=labor_national_cols)
-            labor_national_pivot.to_excel(writer, sheet_name='Labor_Market_National')
-            
+            labor_national_cols = [
+                col for col in labor_df.columns if 'National' in col or 'Total' in col]
+            labor_national_pivot = labor_df.pivot_table(
+                index='Year', columns='Scenario', values=labor_national_cols)
+            labor_national_pivot.to_excel(
+                writer, sheet_name='Labor_Market_National')
+
             # Regional employment
-            employment_regional_cols = [col for col in labor_df.columns if col.startswith('Employment_') and col.endswith('_Millions') and 'Total' not in col]
-            employment_regional_pivot = labor_df.pivot_table(index='Year', columns='Scenario', values=employment_regional_cols)
-            employment_regional_pivot.to_excel(writer, sheet_name='Labor_Market_Employment')
-            
+            employment_regional_cols = [col for col in labor_df.columns if col.startswith(
+                'Employment_') and col.endswith('_Millions') and 'Total' not in col]
+            employment_regional_pivot = labor_df.pivot_table(
+                index='Year', columns='Scenario', values=employment_regional_cols)
+            employment_regional_pivot.to_excel(
+                writer, sheet_name='Labor_Market_Employment')
+
             # Regional unemployment rates
-            unemployment_regional_cols = [col for col in labor_df.columns if col.startswith('Unemployment_Rate_') and 'National' not in col]
-            unemployment_regional_pivot = labor_df.pivot_table(index='Year', columns='Scenario', values=unemployment_regional_cols)
-            unemployment_regional_pivot.to_excel(writer, sheet_name='Labor_Market_Unemployment')
-            
+            unemployment_regional_cols = [col for col in labor_df.columns if col.startswith(
+                'Unemployment_Rate_') and 'National' not in col]
+            unemployment_regional_pivot = labor_df.pivot_table(
+                index='Year', columns='Scenario', values=unemployment_regional_cols)
+            unemployment_regional_pivot.to_excel(
+                writer, sheet_name='Labor_Market_Unemployment')
+
             # 10. DEMOGRAPHICS
             print("  Demographics...")
-            
+
             demo_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -2022,17 +2179,19 @@ class EnhancedItalianDynamicSimulation:
                     for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
                         row[f'Population_{region}_Millions'] = result['demographics']['population_regional'][region]
                     demo_data.append(row)
-            
+
             demo_df = pd.DataFrame(demo_data)
-            
+
             # All demographics in one sheet
-            demo_cols = [col for col in demo_df.columns if col not in ['Year', 'Scenario']]
-            demo_pivot = demo_df.pivot_table(index='Year', columns='Scenario', values=demo_cols)
+            demo_cols = [col for col in demo_df.columns if col not in [
+                'Year', 'Scenario']]
+            demo_pivot = demo_df.pivot_table(
+                index='Year', columns='Scenario', values=demo_cols)
             demo_pivot.to_excel(writer, sheet_name='Demographics')
-            
+
             # 11. RENEWABLE ENERGY INVESTMENT
             print("  Renewable energy investment...")
-            
+
             renewable_data = []
             for scenario, scenario_results in results.items():
                 for result in scenario_results:
@@ -2044,22 +2203,29 @@ class EnhancedItalianDynamicSimulation:
                     }
                     # Add regional renewable investment
                     for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
-                        row[f'Renewable_Investment_{region}_Billion_EUR'] = result['renewable_investment']['renewable_investment_regional'][region]
-                        row[f'Renewable_Capacity_{region}_MW'] = result['renewable_investment']['renewable_capacity_additions_regional'][region]
+                        row[f'Renewable_Investment_{region}_Billion_EUR'] = result[
+                            'renewable_investment']['renewable_investment_regional'][region]
+                        row[f'Renewable_Capacity_{region}_MW'] = result['renewable_investment'][
+                            'renewable_capacity_additions_regional'][region]
                     renewable_data.append(row)
-            
+
             renewable_df = pd.DataFrame(renewable_data)
-            
+
             # Renewable investment
-            investment_cols = [col for col in renewable_df.columns if 'Investment' in col]
-            investment_pivot = renewable_df.pivot_table(index='Year', columns='Scenario', values=investment_cols)
-            investment_pivot.to_excel(writer, sheet_name='Renewable_Investment')
-            
+            investment_cols = [
+                col for col in renewable_df.columns if 'Investment' in col]
+            investment_pivot = renewable_df.pivot_table(
+                index='Year', columns='Scenario', values=investment_cols)
+            investment_pivot.to_excel(
+                writer, sheet_name='Renewable_Investment')
+
             # Renewable capacity
-            capacity_cols = [col for col in renewable_df.columns if 'Capacity' in col]
-            capacity_pivot = renewable_df.pivot_table(index='Year', columns='Scenario', values=capacity_cols)
+            capacity_cols = [
+                col for col in renewable_df.columns if 'Capacity' in col]
+            capacity_pivot = renewable_df.pivot_table(
+                index='Year', columns='Scenario', values=capacity_cols)
             capacity_pivot.to_excel(writer, sheet_name='Renewable_Capacity')
-        
+
         print(f"Results exported to: {excel_file}")
         return excel_file
 
@@ -2069,48 +2235,54 @@ class EnhancedItalianDynamicSimulation:
         """
         print(f"\nKEY RESULTS SUMMARY")
         print("="*50)
-        
+
         # GDP Evolution
         if 'BAU' in results and results['BAU']:
             gdp_2021 = results['BAU'][0]['macroeconomy']['real_gdp_total']
             gdp_2050 = results['BAU'][-1]['macroeconomy']['real_gdp_total']
             growth_rate = ((gdp_2050 / gdp_2021) ** (1/29) - 1) * 100
-            
+
             print(f"GDP Evolution (BAU scenario):")
             print(f"   2021: €{gdp_2021:.0f} billion")
             print(f"   2050: €{gdp_2050:.0f} billion")
             print(f"   Average annual growth: {growth_rate:.1f}%")
-        
+
         # Energy Demand Evolution
         if 'BAU' in results and results['BAU']:
             elec_2021 = results['BAU'][0]['energy']['totals']['electricity_total']
             elec_2050 = results['BAU'][-1]['energy']['totals']['electricity_total']
             gas_2021 = results['BAU'][0]['energy']['totals']['gas_total']
             gas_2050 = results['BAU'][-1]['energy']['totals']['gas_total']
-            
+
             print(f"\nEnergy Demand Evolution (BAU scenario):")
-            print(f"   Electricity: {elec_2021/1000000:.1f} TWh (2021) → {elec_2050/1000000:.1f} TWh (2050)")
-            print(f"   Gas: {gas_2021/1000000:.1f} TWh (2021) → {gas_2050/1000000:.1f} TWh (2050)")
-        
+            print(
+                f"   Electricity: {elec_2021/1000000:.1f} TWh (2021) → {elec_2050/1000000:.1f} TWh (2050)")
+            print(
+                f"   Gas: {gas_2021/1000000:.1f} TWh (2021) → {gas_2050/1000000:.1f} TWh (2050)")
+
         # CO2 Emissions Evolution
         if 'BAU' in results and results['BAU']:
             co2_2021 = results['BAU'][0]['co2_emissions']['total_co2_emissions']
             co2_2050 = results['BAU'][-1]['co2_emissions']['total_co2_emissions']
             intensity_2021 = results['BAU'][0]['co2_emissions']['co2_intensity']
             intensity_2050 = results['BAU'][-1]['co2_emissions']['co2_intensity']
-            
+
             print(f"\nCO2 Emissions Evolution (BAU scenario):")
-            print(f"   Total CO2: {co2_2021:.1f} MtCO2 (2021) → {co2_2050:.1f} MtCO2 (2050)")
-            print(f"   CO2 Intensity: {intensity_2021:.0f} tCO2/M€ (2021) → {intensity_2050:.0f} tCO2/M€ (2050)")
-            
+            print(
+                f"   Total CO2: {co2_2021:.1f} MtCO2 (2021) → {co2_2050:.1f} MtCO2 (2050)")
+            print(
+                f"   CO2 Intensity: {intensity_2021:.0f} tCO2/M€ (2021) → {intensity_2050:.0f} tCO2/M€ (2050)")
+
             # Compare scenarios in 2050
             if 'ETS1' in results and results['ETS1']:
                 ets1_co2_2050 = results['ETS1'][-1]['co2_emissions']['total_co2_emissions']
-                print(f"   ETS1 scenario 2050: {ets1_co2_2050:.1f} MtCO2 ({((ets1_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
-            
+                print(
+                    f"   ETS1 scenario 2050: {ets1_co2_2050:.1f} MtCO2 ({((ets1_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
+
             if 'ETS2' in results and results['ETS2']:
                 ets2_co2_2050 = results['ETS2'][-1]['co2_emissions']['total_co2_emissions']
-                print(f"   ETS2 scenario 2050: {ets2_co2_2050:.1f} MtCO2 ({((ets2_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
+                print(
+                    f"   ETS2 scenario 2050: {ets2_co2_2050:.1f} MtCO2 ({((ets2_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
 
         # Carbon Policy
         if 'ETS1' in results and results['ETS1']:
@@ -2119,12 +2291,13 @@ class EnhancedItalianDynamicSimulation:
             print(f"\nCarbon Policy (2050):")
             print(f"   ETS1 Price: €{ets1_price_2050:.0f}/tCO2")
             print(f"   ETS1 Revenue: €{ets1_revenue_2050:.1f} billion")
-        
+
         if 'ETS2' in results and results['ETS2']:
             ets2_price_2050 = results['ETS2'][-1]['carbon_policy']['ets2_price']
             total_revenue_2050 = results['ETS2'][-1]['carbon_policy']['total_revenue']
             print(f"   ETS2 Price: €{ets2_price_2050:.0f}/tCO2")
-            print(f"   Total Revenue (ETS1+ETS2): €{total_revenue_2050:.1f} billion")
+            print(
+                f"   Total Revenue (ETS1+ETS2): €{total_revenue_2050:.1f} billion")
 
 
 def main():
@@ -2132,7 +2305,7 @@ def main():
     Main execution function
     """
     start_time = time.time()
-    
+
     print("ENHANCED ITALIAN CGE MODEL - DYNAMIC SIMULATION 2021-2050")
     print("="*70)
     print("Using calibrated 2021 base year from comprehensive_results_generator")
@@ -2147,22 +2320,23 @@ def main():
     print("   • Energy: final energy demand by sector and households (MWh, by carrier)")
     print("   • Climate policy: CO2 price levels, carbon tax/ETS revenues")
     print("   • Trade: exports and imports")
-    
+
     # Initialize and run simulation
     simulation = EnhancedItalianDynamicSimulation()
     results = simulation.run_all_scenarios()
-    
+
     # Export results
     excel_file = simulation.export_results_to_excel(results)
-    
+
     # Print summary
     simulation.print_summary(results)
-    
+
     end_time = time.time()
-    
+
     # Final statistics
-    total_years = sum(len(scenario_results) for scenario_results in results.values())
-    
+    total_years = sum(len(scenario_results)
+                      for scenario_results in results.values())
+
     print(f"\nENHANCED DYNAMIC SIMULATION COMPLETED!")
     print(f"Execution time: {end_time - start_time:.1f} seconds")
     print(f"Total years simulated: {total_years}")
