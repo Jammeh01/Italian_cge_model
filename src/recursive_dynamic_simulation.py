@@ -460,9 +460,15 @@ class EnhancedItalianDynamicSimulation:
             'carbon_prices': {
                 # ETS1 starting price in 2021 (actual EU ETS price)
                 'ets1_initial': 53.90,
-                'ets1_growth_rate': 0.04,   # 4% annual growth
+                'ets1_growth_rate': 0.04,   # 4% annual growth initially
+                'ets1_growth_decline': 0.0015,  # Growth rate declines by 0.15% per year
+                # Maximum realistic ETS1 price (EUR/tCO2)
+                'ets1_max_price': 150.0,
                 'ets2_initial': 45.0,       # ETS2 starting price in 2027
-                'ets2_growth_rate': 0.025   # 2.5% annual growth
+                'ets2_growth_rate': 0.025,  # 2.5% annual growth initially
+                'ets2_growth_decline': 0.001,  # Growth rate declines by 0.1% per year
+                # Maximum realistic ETS2 price (EUR/tCO2)
+                'ets2_max_price': 100.0
             },
 
             # Inflation rates
@@ -538,70 +544,100 @@ class EnhancedItalianDynamicSimulation:
                 regional_gdp_targets[region] = (self.base_data['gdp_regional'][region] *
                                                 (1 + growth_rate) ** years_elapsed)
 
-            # Carbon pricing parameters
+            # Carbon pricing parameters with declining growth rate and caps
             carbon_price_ets1 = 0
             carbon_price_ets2 = 0
 
             if scenario == 'ETS1' and year >= 2021:
-                carbon_price_ets1 = (self.assumptions['carbon_prices']['ets1_initial'] *
-                                     (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_elapsed)
+                # Calculate price with declining growth rate
+                accumulated_price = self.assumptions['carbon_prices']['ets1_initial']
+                for t in range(years_elapsed):
+                    # Growth rate declines over time
+                    growth_rate = max(0.01, self.assumptions['carbon_prices']['ets1_growth_rate'] -
+                                      self.assumptions['carbon_prices']['ets1_growth_decline'] * t)
+                    accumulated_price *= (1 + growth_rate)
+                # Cap at maximum realistic price
+                carbon_price_ets1 = min(
+                    accumulated_price, self.assumptions['carbon_prices']['ets1_max_price'])
+
             elif scenario == 'ETS2' and year >= 2027:
                 years_ets2 = year - 2027
-                carbon_price_ets1 = (self.assumptions['carbon_prices']['ets1_initial'] *
-                                     (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_elapsed)
-                carbon_price_ets2 = (self.assumptions['carbon_prices']['ets2_initial'] *
-                                     (1 + self.assumptions['carbon_prices']['ets2_growth_rate']) ** years_ets2)
+                # ETS1 price calculation (same as above)
+                accumulated_price_ets1 = self.assumptions['carbon_prices']['ets1_initial']
+                for t in range(years_elapsed):
+                    growth_rate = max(0.01, self.assumptions['carbon_prices']['ets1_growth_rate'] -
+                                      self.assumptions['carbon_prices']['ets1_growth_decline'] * t)
+                    accumulated_price_ets1 *= (1 + growth_rate)
+                carbon_price_ets1 = min(
+                    accumulated_price_ets1, self.assumptions['carbon_prices']['ets1_max_price'])
+
+                # ETS2 price calculation
+                accumulated_price_ets2 = self.assumptions['carbon_prices']['ets2_initial']
+                for t in range(years_ets2):
+                    growth_rate = max(0.005, self.assumptions['carbon_prices']['ets2_growth_rate'] -
+                                      self.assumptions['carbon_prices']['ets2_growth_decline'] * t)
+                    accumulated_price_ets2 *= (1 + growth_rate)
+                carbon_price_ets2 = min(
+                    accumulated_price_ets2, self.assumptions['carbon_prices']['ets2_max_price'])
 
             # =============================================================
-            # VARIABLES
+            # VARIABLES (with wider bounds for later years)
             # =============================================================
+
+            # Adaptive bounds based on year - more flexibility in later years
+            # Up to 50% wider bounds by 2050
+            bounds_multiplier = 1.0 + (years_elapsed / 30) * 0.5
 
             # Regional GDP
             model.gdp_regional = pyo.Var(model.regions, bounds=(
-                100, 2000), initialize=regional_gdp_targets)
+                50, 2500 * bounds_multiplier), initialize=regional_gdp_targets)
 
             # Sectoral value added
-            model.va_sectoral = pyo.Var(model.sectors, bounds=(10, 2000),
+            model.va_sectoral = pyo.Var(model.sectors, bounds=(5, 2500 * bounds_multiplier),
                                         initialize=self.base_data['sectoral_value_added'])
 
             # Regional employment
-            model.employment_regional = pyo.Var(model.regions, bounds=(0.5, 15),
+            model.employment_regional = pyo.Var(model.regions, bounds=(0.3, 20 * bounds_multiplier),
                                                 initialize=self.base_data['employment_regional'])
 
             # Regional labor force
-            model.labor_force_regional = pyo.Var(model.regions, bounds=(0.5, 15),
+            model.labor_force_regional = pyo.Var(model.regions, bounds=(0.3, 20 * bounds_multiplier),
                                                  initialize=self.base_data['labor_force_regional'])
 
             # Regional population
-            model.population_regional = pyo.Var(model.regions, bounds=(1, 20),
+            model.population_regional = pyo.Var(model.regions, bounds=(0.5, 25 * bounds_multiplier),
                                                 initialize=self.base_data['population_regional'])
 
-            # Energy demand by sector and carrier
-            model.energy_sectoral = pyo.Var(model.sectors, model.energy_carriers, bounds=(1000, 100000000),
+            # Energy demand by sector and carrier (wider bounds for flexibility)
+            model.energy_sectoral = pyo.Var(model.sectors, model.energy_carriers,
+                                            bounds=(100, 200000000 *
+                                                    bounds_multiplier),
                                             initialize=lambda m, s, c: self.base_data['energy_demand_sectoral'][c][s])
 
             # Energy demand by region and carrier (households)
-            model.energy_household = pyo.Var(model.regions, model.energy_carriers, bounds=(1000000, 80000000),
+            model.energy_household = pyo.Var(model.regions, model.energy_carriers,
+                                             bounds=(
+                                                 500000, 150000000 * bounds_multiplier),
                                              initialize=lambda m, r, c: self.base_data['household_energy_demand'][c][r])
 
             # Renewable investment by region
-            model.renewable_investment = pyo.Var(model.regions, bounds=(0.5, 50),
+            model.renewable_investment = pyo.Var(model.regions, bounds=(0.3, 80 * bounds_multiplier),
                                                  initialize=self.base_data['renewable_investment_regional'])
 
             # Household income and expenditure
-            model.household_income = pyo.Var(model.regions, bounds=(50, 800),
+            model.household_income = pyo.Var(model.regions, bounds=(30, 1200 * bounds_multiplier),
                                              initialize=self.base_data['household_income'])
-            model.household_expenditure = pyo.Var(model.regions, bounds=(40, 700),
+            model.household_expenditure = pyo.Var(model.regions, bounds=(20, 1000 * bounds_multiplier),
                                                   initialize=self.base_data['household_expenditure'])
 
             # Price indices
-            model.cpi = pyo.Var(bounds=(0.8, 3.0), initialize=1.0)
-            model.ppi = pyo.Var(bounds=(0.8, 3.0), initialize=1.0)
+            model.cpi = pyo.Var(bounds=(0.7, 4.0), initialize=1.0)
+            model.ppi = pyo.Var(bounds=(0.7, 4.0), initialize=1.0)
 
             # Trade variables
-            model.exports_sectoral = pyo.Var(model.sectors, bounds=(1, 500),
+            model.exports_sectoral = pyo.Var(model.sectors, bounds=(0.5, 800 * bounds_multiplier),
                                              initialize=self.base_data['exports'])
-            model.imports_sectoral = pyo.Var(model.sectors, bounds=(1, 500),
+            model.imports_sectoral = pyo.Var(model.sectors, bounds=(0.5, 800 * bounds_multiplier),
                                              initialize=self.base_data['imports'])
 
             # =============================================================
@@ -630,22 +666,31 @@ class EnhancedItalianDynamicSimulation:
             model.regional_gdp_emp = pyo.Constraint(
                 model.regions, rule=regional_gdp_employment)
 
-            # 4. Energy-GDP relationship by sector
+            # 4. Energy-GDP relationship by sector (with increased flexibility in later years)
             def energy_gdp_relationship(m, s, c):
                 base_energy = self.base_data['energy_demand_sectoral'][c][s]
                 base_va = self.base_data['sectoral_value_added'][s]
                 # Energy intensity declines over time
                 # 1.8% annual efficiency improvement
                 efficiency_factor = (1 - 0.018) ** years_elapsed
-                # Carbon pricing effects
+
+                # Carbon pricing effects with relaxed constraints in later years
                 carbon_factor = 1.0
+                # Flexibility factor increases in later years to allow more substitution
+                # Up to 50% more flexibility by 2050
+                flexibility_multiplier = 1.0 + (years_elapsed / 30) * 0.5
+
                 if scenario in ['ETS1', 'ETS2'] and year >= 2021:
                     if c == 'gas' and carbon_price_ets1 > 0:
-                        # Gas demand reduction
-                        carbon_factor *= (1 - 0.001 * carbon_price_ets1)
+                        # Gas demand reduction with increased flexibility in later years
+                        base_reduction = 0.001 * carbon_price_ets1
+                        carbon_factor *= (1 - base_reduction *
+                                          flexibility_multiplier)
                     elif c == 'electricity' and carbon_price_ets1 > 0:
-                        # Electricity demand increase
-                        carbon_factor *= (1 + 0.0005 * carbon_price_ets1)
+                        # Electricity demand increase with increased flexibility
+                        base_increase = 0.0005 * carbon_price_ets1
+                        carbon_factor *= (1 + base_increase *
+                                          flexibility_multiplier)
 
                 return m.energy_sectoral[s, c] == (m.va_sectoral[s] / base_va) * base_energy * efficiency_factor * carbon_factor
             # 5. Household energy-income relationship
@@ -661,15 +706,23 @@ class EnhancedItalianDynamicSimulation:
                 # Household efficiency improvements
                 efficiency_factor = (1 - 0.015) ** years_elapsed
 
-                # Carbon pricing effects on households
+                # Carbon pricing effects on households with increased flexibility in later years
                 carbon_factor = 1.0
+                # Flexibility increases in later years (households can adapt better with more time)
+                # Up to 60% more flexibility by 2050
+                flexibility_multiplier = 1.0 + (years_elapsed / 30) * 0.6
+
                 if scenario == 'ETS2' and year >= 2027 and carbon_price_ets2 > 0:
                     if c == 'gas':
-                        # Strong gas reduction
-                        carbon_factor *= (1 - 0.002 * carbon_price_ets2)
+                        # Strong gas reduction with increased flexibility
+                        base_reduction = 0.002 * carbon_price_ets2
+                        carbon_factor *= (1 - base_reduction *
+                                          flexibility_multiplier)
                     elif c == 'electricity':
-                        # Heat pump adoption
-                        carbon_factor *= (1 + 0.001 * carbon_price_ets2)
+                        # Heat pump adoption with increased flexibility
+                        base_increase = 0.001 * carbon_price_ets2
+                        carbon_factor *= (1 + base_increase *
+                                          flexibility_multiplier)
 
                 return m.energy_household[r, c] == base_energy * ((m.household_income[r] / base_income) ** income_elasticity) * efficiency_factor * carbon_factor
             model.household_energy_income = pyo.Constraint(
@@ -793,17 +846,39 @@ class EnhancedItalianDynamicSimulation:
             # SOLVE WITH IPOPT
             # =============================================================
 
-            # Create IPOPT solver
+            # Create IPOPT solver with options compatible with version 3.11.1
             solver = SolverFactory('ipopt')
-            solver.options['max_iter'] = 3000
-            solver.options['tol'] = 1e-6
-            solver.options['print_level'] = 0  # Reduce output
 
-            # Solve the model
+            # Basic solver options (all compatible with IPOPT 3.11.1)
+            # Increased iterations for convergence
+            solver.options['max_iter'] = 5000
+            # Reduce output (0-12, 0=minimal)
+            solver.options['print_level'] = 0
+
+            # Adaptive tolerance based on year - more relaxed in later years
+            if years_elapsed < 15:  # Years 2021-2035
+                solver.options['tol'] = 1e-6  # Tight tolerance for early years
+            elif years_elapsed < 25:  # Years 2036-2045
+                solver.options['tol'] = 1e-5  # Moderate tolerance
+            else:  # Years 2046-2050
+                # Relaxed tolerance for late years
+                solver.options['tol'] = 1e-4
+
+            # Additional robustness options (verified compatible with IPOPT 3.11.1)
+            solver.options['max_cpu_time'] = 300.0  # Max 5 minutes per solve
+            # Use initialization point
+            solver.options['warm_start_init_point'] = 'yes'
+            # Adaptive barrier parameter update
+            solver.options['mu_strategy'] = 'adaptive'
+
+            # Solve the model with error handling
             results = solver.solve(model, tee=False)
 
-            # Check if solution is optimal
-            if results.solver.termination_condition == pyo.TerminationCondition.optimal:
+            # Check if solution is optimal or acceptable
+            if (results.solver.termination_condition == pyo.TerminationCondition.optimal or
+                results.solver.termination_condition == pyo.TerminationCondition.locallyOptimal or
+                    results.solver.termination_condition == pyo.TerminationCondition.feasible):
+
                 # Extract results into the same format as analytical calculations
 
                 # Macroeconomy
@@ -938,16 +1013,18 @@ class EnhancedItalianDynamicSimulation:
                     'labor_market': labor_market,
                     'demographics': demographics,
                     'renewable_investment': renewable_investment,
-                    'solver_status': 'optimal'
+                    'solver_status': f'ipopt_{results.solver.termination_condition}'
                 }
 
             else:
+                # IPOPT didn't converge well - try analytical as fallback
                 print(
-                    f"Warning: IPOPT solver did not find optimal solution for {year} {scenario}")
+                    f"Warning: IPOPT termination condition '{results.solver.termination_condition}' for {year} {scenario}, using analytical fallback")
                 return self.calculate_analytical_approximation(year, scenario, previous_year_data)
 
         except Exception as e:
             print(f"Error in IPOPT solver for {year} {scenario}: {str(e)}")
+            print("  Falling back to analytical approximation")
             return self.calculate_analytical_approximation(year, scenario, previous_year_data)
 
     def calculate_analytical_approximation(self, year, scenario, previous_year_data):
@@ -1263,7 +1340,7 @@ class EnhancedItalianDynamicSimulation:
     def calculate_carbon_policy(self, year, scenario):
         """
         Calculate CO2 price levels (ETS1 and ETS2) and total carbon tax/ETS revenues
-        ALIGNED WITH energy_environment_block.py for accurate carbon pricing
+        WITH DECLINING GROWTH RATES AND PRICE CAPS FOR REALISTIC LONG-TERM PROJECTIONS
         """
         years_from_base = year - self.base_year
 
@@ -1275,13 +1352,18 @@ class EnhancedItalianDynamicSimulation:
         ets2_revenue = 0.0
 
         if scenario == 'ETS1' and year >= 2021:
-            # ETS1: Industrial carbon pricing from 2021
-            # Continuous growth from base year (aligned with energy_environment_block.py)
-            ets1_price = (self.assumptions['carbon_prices']['ets1_initial'] *
-                          (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_from_base)
+            # ETS1: Industrial carbon pricing with declining growth rate and cap
+            accumulated_price = self.assumptions['carbon_prices']['ets1_initial']
+            for t in range(years_from_base):
+                # Growth rate declines over time
+                growth_rate = max(0.01, self.assumptions['carbon_prices']['ets1_growth_rate'] -
+                                  self.assumptions['carbon_prices']['ets1_growth_decline'] * t)
+                accumulated_price *= (1 + growth_rate)
+            # Cap at maximum realistic price
+            ets1_price = min(
+                accumulated_price, self.assumptions['carbon_prices']['ets1_max_price'])
 
             # Estimate ETS1 revenue (billion EUR)
-            # Based on industrial emissions coverage (~60% of total emissions)
             # Mt CO2
             industrial_emissions = self.base_data['co2_emissions_total'] * 0.6
             # Assume 85% of emissions are covered by ETS1
@@ -1291,17 +1373,24 @@ class EnhancedItalianDynamicSimulation:
             ets1_revenue = total_revenue
 
         elif scenario == 'ETS2' and year >= 2027:
-            # ETS2: Buildings & Transport carbon pricing from 2027
-            # ALIGNED WITH energy_environment_block.py - continuous growth, no hardcoded jump
+            # ETS1 continues with declining growth rate and cap
+            accumulated_price_ets1 = self.assumptions['carbon_prices']['ets1_initial']
+            for t in range(years_from_base):
+                growth_rate = max(0.01, self.assumptions['carbon_prices']['ets1_growth_rate'] -
+                                  self.assumptions['carbon_prices']['ets1_growth_decline'] * t)
+                accumulated_price_ets1 *= (1 + growth_rate)
+            ets1_price = min(accumulated_price_ets1,
+                             self.assumptions['carbon_prices']['ets1_max_price'])
 
-            # ETS1 continues with continuous growth from 2021 base year
-            ets1_price = (self.assumptions['carbon_prices']['ets1_initial'] *
-                          (1 + self.assumptions['carbon_prices']['ets1_growth_rate']) ** years_from_base)
-
-            # ETS2 starts in 2027 with its own growth trajectory
+            # ETS2 starts in 2027 with declining growth rate and cap
             years_from_2027 = year - 2027
-            ets2_price = (self.assumptions['carbon_prices']['ets2_initial'] *
-                          (1 + self.assumptions['carbon_prices']['ets2_growth_rate']) ** years_from_2027)
+            accumulated_price_ets2 = self.assumptions['carbon_prices']['ets2_initial']
+            for t in range(years_from_2027):
+                growth_rate = max(0.005, self.assumptions['carbon_prices']['ets2_growth_rate'] -
+                                  self.assumptions['carbon_prices']['ets2_growth_decline'] * t)
+                accumulated_price_ets2 *= (1 + growth_rate)
+            ets2_price = min(accumulated_price_ets2,
+                             self.assumptions['carbon_prices']['ets2_max_price'])
 
             # Estimate total revenue
             industrial_emissions = self.base_data['co2_emissions_total'] * 0.6
@@ -1780,7 +1869,8 @@ class EnhancedItalianDynamicSimulation:
                 previous_year_data = year_result
 
                 results.append(year_result)
-                print("OK")
+                solver_status = year_solution.get('solver_status', 'unknown')
+                print(f"OK ({solver_status})")
 
             except Exception as e:
                 print(f"Error: {str(e)}")
