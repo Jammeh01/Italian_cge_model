@@ -271,13 +271,20 @@ class MarketClearingClosureBlock:
                 self.model.FS['Capital'].fix(base_capital)
                 print(f"Fixed base year capital stock: {base_capital:.2f}")
 
-            # Government closure: balance adjusts (spending largely fixed)
+            # Government closure: FIXED spending to prevent carbon revenue recycling
+            # Carbon revenue should affect government balance, NOT trigger spending increases
+            # This ensures carbon costs have real GDP impacts
             self.model.government_balance.unfix()
             if hasattr(self.model, 'C_G'):
-                self.model.C_G.setub(
-                    self.model.C_G.value * 1.1 if self.model.C_G.value else 1000)
-                self.model.C_G.setlb(
-                    self.model.C_G.value * 0.9 if self.model.C_G.value else 500)
+                # Fix C_G at its current value (no automatic spending of carbon revenue)
+                if self.model.C_G.value:
+                    self.model.C_G.fix(self.model.C_G.value)
+                    print(
+                        f"  → Government consumption fixed at {self.model.C_G.value:.2f} (no carbon revenue spending)")
+                else:
+                    # If no value yet, set tight bounds
+                    self.model.C_G.setub(1000)
+                    self.model.C_G.setlb(500)
 
             # Investment adjusts to savings
             self.model.savings_investment_gap.fix(0.0)  # Force balance
@@ -535,13 +542,14 @@ class MarketClearingClosureBlock:
         print("Market clearing variables initialized")
 
     def get_closure_results(self, model_solution):
-        """Extract closure and equilibrium results"""
+        """Extract closure and equilibrium results including carbon pricing impacts"""
 
         results = {
             'factor_markets': {},
             'goods_markets': {},
             'macro_balances': {},
-            'equilibrium_indicators': {}
+            'equilibrium_indicators': {},
+            'carbon_pricing_impacts': {}
         }
 
         # Factor market results
@@ -557,13 +565,28 @@ class MarketClearingClosureBlock:
         results['factor_markets']['capital_utilization'] = pyo.value(
             model_solution.capital_utilization)
 
-        # Macro balances
+        # Macro balances (including carbon revenue impact on government balance)
         results['macro_balances']['savings_investment_gap'] = pyo.value(
             model_solution.savings_investment_gap) * 1000
         results['macro_balances']['government_balance'] = pyo.value(
             model_solution.government_balance) * 1000
         results['macro_balances']['price_level'] = pyo.value(
             model_solution.price_level)
+
+        # Carbon pricing impacts on macro balances
+        if hasattr(model_solution, 'Carbon_Revenue'):
+            carbon_revenue = pyo.value(model_solution.Carbon_Revenue)
+            results['carbon_pricing_impacts']['carbon_revenue'] = carbon_revenue
+            results['carbon_pricing_impacts']['carbon_revenue_share_govt'] = (
+                carbon_revenue / pyo.value(model_solution.Y_G)
+                if pyo.value(model_solution.Y_G) > 0 else 0
+            )
+
+            # Government balance with and without carbon revenue
+            govt_balance = pyo.value(model_solution.government_balance) * 1000
+            results['carbon_pricing_impacts']['govt_balance_with_carbon'] = govt_balance
+            results['carbon_pricing_impacts']['govt_balance_without_carbon'] = govt_balance - carbon_revenue
+            results['carbon_pricing_impacts']['carbon_improves_fiscal_position'] = carbon_revenue > 0
 
         # Goods market pressures (should be zero in equilibrium)
         goods_market_balance = {}

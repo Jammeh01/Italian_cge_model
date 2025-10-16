@@ -132,22 +132,39 @@ class EnergyEnvironmentBlock:
             doc="ETS2 carbon price (€/tCO2e) - EU ETS for buildings and transport (starts 2027)"
         )
 
-        # Policy cost on sectors (carbon payments)
-        def policy_cost_bounds(model, j):
+        # Carbon cost on sectors (affects production costs - ThreeME approach)
+        def carbon_cost_bounds(model, j):
             sector_data = self.params['sectors'].get(j, {})
             base_output = sector_data.get('gross_output', 1000)
-            max_cost = base_output * 0.1  # Max 10% of output value
+            max_cost = base_output * 0.15  # Max 15% of output value as carbon cost
             return (0.0, max_cost)
 
+        self.model.Carbon_Cost = pyo.Var(
+            self.sectors,
+            domain=pyo.NonNegativeReals,
+            bounds=carbon_cost_bounds,
+            initialize=0.0,
+            doc="Carbon cost by sector (affects production costs)"
+        )
+
+        # Policy cost on sectors (carbon payments - alias for compatibility)
         self.model.PLC = pyo.Var(
             self.sectors,
             domain=pyo.NonNegativeReals,
-            bounds=policy_cost_bounds,
+            bounds=carbon_cost_bounds,
             initialize=0.0,
-            doc="Policy cost of carbon pricing on sectors"
+            doc="Policy cost of carbon pricing on sectors (same as Carbon_Cost)"
         )
 
-        # ETS revenue by policy
+        # Total carbon revenue (ETS1 + ETS2)
+        self.model.Carbon_Revenue = pyo.Var(
+            domain=pyo.NonNegativeReals,
+            bounds=(0.0, None),
+            initialize=0.0,
+            doc="Total carbon revenue from ETS1 and ETS2"
+        )
+
+        # ETS revenue by policy (for detailed tracking)
         self.model.ETS1_revenue = pyo.Var(
             domain=pyo.NonNegativeReals,
             bounds=(0.0, None),
@@ -384,51 +401,59 @@ class EnergyEnvironmentBlock:
         )
 
     def add_ets_policy_constraints(self):
-        """ETS policy implementation constraints"""
+        """ETS policy implementation constraints - ThreeME approach"""
 
-        def policy_cost_ets1_rule(model, j):
-            """Policy cost from ETS1 (paid allowances only)"""
-            # Only ETS1-covered sectors pay carbon price
-            # Only for emissions above free allocation
+        def carbon_cost_rule(model, j):
+            """Carbon cost on sector j (ETS1 + ETS2) - affects production costs
 
+            Following ThreeME model approach:
+            - Only covered sectors pay carbon price
+            - Free allocation reduces effective cost (prevents carbon leakage)
+            - Cost enters production function as additional input cost
+            """
+            # ETS1 cost component
+            ets1_cost = 0.0
             if pyo.value(model.ets1_coverage[j]) > 0:
                 # Sector is covered by ETS1
-                paid_emissions = model.EM[j] * (1 - model.free_alloc_ets1)
-                ets1_cost = model.carbon_price_ets1 * paid_emissions
-            else:
-                ets1_cost = 0.0
+                # Only pay for emissions above free allocation
+                paid_emissions_ets1 = model.EM[j] * (1 - model.free_alloc_ets1)
+                ets1_cost = model.carbon_price_ets1 * paid_emissions_ets1
 
-            return ets1_cost
-
-        def policy_cost_ets2_rule(model, j):
-            """Policy cost from ETS2 (paid allowances only)"""
+            # ETS2 cost component
+            ets2_cost = 0.0
             if pyo.value(model.ets2_coverage[j]) > 0:
                 # Sector is covered by ETS2
-                paid_emissions = model.EM[j] * (1 - model.free_alloc_ets2)
-                ets2_cost = model.carbon_price_ets2 * paid_emissions
-            else:
-                ets2_cost = 0.0
+                paid_emissions_ets2 = model.EM[j] * (1 - model.free_alloc_ets2)
+                ets2_cost = model.carbon_price_ets2 * paid_emissions_ets2
 
-            return ets2_cost
+            # Total carbon cost (enters production cost equation)
+            total_carbon_cost = ets1_cost + ets2_cost
 
-        def total_policy_cost_rule(model, j):
-            """Total policy cost on sector j (ETS1 + ETS2)"""
-            ets1_cost = policy_cost_ets1_rule(model, j)
-            ets2_cost = policy_cost_ets2_rule(model, j)
+            return model.Carbon_Cost[j] == total_carbon_cost
 
-            return model.PLC[j] == ets1_cost + ets2_cost
-
-        self.model.eq_policy_cost = pyo.Constraint(
+        self.model.eq_carbon_cost = pyo.Constraint(
             self.sectors,
-            rule=total_policy_cost_rule,
-            doc="Total carbon policy cost by sector"
+            rule=carbon_cost_rule,
+            doc="Carbon cost by sector (affects production costs)"
+        )
+
+        # Alias PLC = Carbon_Cost for compatibility
+        def policy_cost_alias_rule(model, j):
+            """PLC is alias for Carbon_Cost"""
+            return model.PLC[j] == model.Carbon_Cost[j]
+
+        self.model.eq_policy_cost_alias = pyo.Constraint(
+            self.sectors,
+            rule=policy_cost_alias_rule,
+            doc="Policy cost alias"
         )
 
         def ets1_revenue_rule(model):
-            """Total ETS1 revenue"""
+            """Total ETS1 revenue (government revenue from ETS1)"""
             ets1_revenue = 0
             for j in self.sectors:
                 if pyo.value(model.ets1_coverage[j]) > 0:
+                    # Revenue = price * paid emissions
                     paid_emissions = model.EM[j] * (1 - model.free_alloc_ets1)
                     ets1_revenue += model.carbon_price_ets1 * paid_emissions
 
@@ -440,7 +465,7 @@ class EnergyEnvironmentBlock:
         )
 
         def ets2_revenue_rule(model):
-            """Total ETS2 revenue"""
+            """Total ETS2 revenue (government revenue from ETS2)"""
             ets2_revenue = 0
             for j in self.sectors:
                 if pyo.value(model.ets2_coverage[j]) > 0:
@@ -452,6 +477,15 @@ class EnergyEnvironmentBlock:
         self.model.eq_ets2_revenue = pyo.Constraint(
             rule=ets2_revenue_rule,
             doc="ETS2 revenue calculation"
+        )
+
+        def total_carbon_revenue_rule(model):
+            """Total carbon revenue (ETS1 + ETS2) - recycled to government or households"""
+            return model.Carbon_Revenue == model.ETS1_revenue + model.ETS2_revenue
+
+        self.model.eq_total_carbon_revenue = pyo.Constraint(
+            rule=total_carbon_revenue_rule,
+            doc="Total carbon revenue"
         )
 
     def add_energy_indicators(self):
@@ -647,10 +681,12 @@ class EnergyEnvironmentBlock:
         self.model.carbon_price_ets1.set_value(0.0)
         self.model.carbon_price_ets2.set_value(0.0)
 
-        # Initialize policy costs
+        # Initialize carbon costs and policy costs (ThreeME approach)
         for j in self.sectors:
+            self.model.Carbon_Cost[j].set_value(0.0)
             self.model.PLC[j].set_value(0.0)
 
+        self.model.Carbon_Revenue.set_value(0.0)
         self.model.ETS1_revenue.set_value(0.0)
         self.model.ETS2_revenue.set_value(0.0)
 
@@ -695,6 +731,7 @@ class EnergyEnvironmentBlock:
                 'ets1_revenue': 0,
                 'ets2_revenue': 0,
                 'total_carbon_revenue': 0,
+                'carbon_costs_by_sector': {},
                 'policy_costs_by_sector': {}
             },
             'energy_indicators': {
@@ -741,7 +778,7 @@ class EnergyEnvironmentBlock:
             regional_emissions[h] = results['emissions']['by_household'][h]
         results['emissions']['by_region'] = regional_emissions
 
-        # Carbon pricing results
+        # Carbon pricing results (key for policy analysis)
         results['carbon_pricing']['ets1_price'] = pyo.value(
             model_solution.carbon_price_ets1)
         results['carbon_pricing']['ets2_price'] = pyo.value(
@@ -750,12 +787,22 @@ class EnergyEnvironmentBlock:
             model_solution.ETS1_revenue)
         results['carbon_pricing']['ets2_revenue'] = pyo.value(
             model_solution.ETS2_revenue)
-        results['carbon_pricing']['total_carbon_revenue'] = (
-            results['carbon_pricing']['ets1_revenue'] +
-            results['carbon_pricing']['ets2_revenue']
-        )
 
+        # Total carbon revenue (includes both ETS1 and ETS2)
+        if hasattr(model_solution, 'Carbon_Revenue'):
+            results['carbon_pricing']['total_carbon_revenue'] = pyo.value(
+                model_solution.Carbon_Revenue)
+        else:
+            results['carbon_pricing']['total_carbon_revenue'] = (
+                results['carbon_pricing']['ets1_revenue'] +
+                results['carbon_pricing']['ets2_revenue']
+            )
+
+        # Carbon costs by sector (affects production costs - ThreeME approach)
         for j in self.sectors:
+            if hasattr(model_solution, 'Carbon_Cost'):
+                results['carbon_pricing']['carbon_costs_by_sector'][j] = pyo.value(
+                    model_solution.Carbon_Cost[j])
             results['carbon_pricing']['policy_costs_by_sector'][j] = pyo.value(
                 model_solution.PLC[j])
 

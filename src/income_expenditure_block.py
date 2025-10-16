@@ -506,21 +506,31 @@ class IncomeExpenditureBlock:
 
         # Government revenue
         def government_revenue_rule(model):
-            """Y_G = direct_taxes + indirect_taxes + tariffs + carbon_revenue"""
+            """
+            Y_G = direct_taxes + indirect_taxes + tariffs + carbon_revenue
+
+            Following ThreeME approach:
+            - Carbon revenue from ETS1 and ETS2 is recycled through government budget
+            - Can be used for: (1) reducing deficit, (2) transfers to households, (3) green investment
+            """
             direct_taxes = sum(model.Td[h] for h in self.household_regions)
             indirect_taxes = sum(model.Tz[j] for j in self.sectors)
             tariffs = sum(model.Tm[j] for j in self.sectors)
 
-            # Carbon revenue (if carbon pricing is active)
+            # Carbon revenue from ETS policies (key addition for ETS scenarios)
             carbon_revenue = 0
-            if hasattr(model, 'PLC'):  # Policy cost from energy block
+            if hasattr(model, 'Carbon_Revenue'):
+                # Use total carbon revenue from energy-environment block
+                carbon_revenue = model.Carbon_Revenue
+            elif hasattr(model, 'PLC'):
+                # Fallback: sum policy costs from all sectors
                 carbon_revenue = sum(model.PLC[j] for j in self.sectors)
 
             return model.Y_G == direct_taxes + indirect_taxes + tariffs + carbon_revenue
 
         self.model.eq_government_revenue = pyo.Constraint(
             rule=government_revenue_rule,
-            doc="Government revenue"
+            doc="Government revenue including carbon revenue"
         )
 
         # Tax revenue definitions
@@ -774,7 +784,7 @@ class IncomeExpenditureBlock:
             'government_savings': 0,
             'investment_total': 0,
             'investment_sectoral': {},
-            'tax_revenues': {'direct': {}, 'indirect': {}, 'tariffs': {}},
+            'tax_revenues': {'direct': {}, 'indirect': {}, 'tariffs': {}, 'carbon_revenue': 0},
             'savings_investment_balance': {}
         }
 
@@ -811,7 +821,7 @@ class IncomeExpenditureBlock:
             results['investment_sectoral'][j] = pyo.value(
                 model_solution.I[j]) * self.income_scale
 
-        # Tax revenues
+        # Tax revenues (including carbon revenue)
         for h in self.household_regions:
             results['tax_revenues']['direct'][h] = pyo.value(
                 model_solution.Td[h])
@@ -821,6 +831,16 @@ class IncomeExpenditureBlock:
                 model_solution.Tz[j])
             results['tax_revenues']['tariffs'][j] = pyo.value(
                 model_solution.Tm[j])
+
+        # Carbon revenue from ETS policies (key metric for policy analysis)
+        if hasattr(model_solution, 'Carbon_Revenue'):
+            results['tax_revenues']['carbon_revenue'] = pyo.value(
+                model_solution.Carbon_Revenue)
+        elif hasattr(model_solution, 'PLC'):
+            results['tax_revenues']['carbon_revenue'] = sum(
+                pyo.value(model_solution.PLC[j]) for j in self.sectors)
+        else:
+            results['tax_revenues']['carbon_revenue'] = 0.0
 
         # Aggregate calculations
         results['total_household_income'] = sum(

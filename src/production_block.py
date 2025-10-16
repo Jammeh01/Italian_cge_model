@@ -409,22 +409,37 @@ class ProductionBlock:
             doc="Capital demand FOC (no division)"
         )
 
-        # Zero-profit conditions (price equations)
+        # Zero-profit conditions (price equations) - ThreeME approach with carbon costs
         def zero_profit_rule(model, j):
-            """pz = pva * va_share + sum(pq[i] * a_ij[i,j])"""
+            """
+            Zero-profit condition: pz * Z = factor_costs + intermediate_costs + carbon_costs
+
+            Following ThreeME model structure:
+            pz = (pva * va_share + sum(pq[i] * a_ij[i,j]) + carbon_cost_per_unit)
+
+            Carbon costs from ETS policies are added as production cost
+            """
             sector_data = self.params['sectors'].get(j, {})
             va_share = (sector_data.get('value_added', 600) /
                         sector_data.get('gross_output', 1000) if sector_data.get('gross_output', 1000) > 0 else 0.7)
 
-            # Simplified: assume pq=1
+            # Intermediate input costs
             intermediate_cost = sum(model.a_ij[i, j] for i in self.sectors)
 
-            return model.pz[j] == model.pva[j] * va_share + intermediate_cost
+            # Carbon cost per unit of output
+            # If Carbon_Cost variable exists from energy-environment block, include it
+            if hasattr(model, 'Carbon_Cost'):
+                # Carbon cost per unit output: Carbon_Cost[j] / Z[j]
+                # To avoid division, reformulate as: pz * Z = pva * va_share * Z + intermediate_cost * Z + Carbon_Cost
+                return model.pz[j] * model.Z[j] == (model.pva[j] * va_share + intermediate_cost) * model.Z[j] + model.Carbon_Cost[j]
+            else:
+                # Fallback without carbon costs (base year or BAU without ETS)
+                return model.pz[j] == model.pva[j] * va_share + intermediate_cost
 
         self.model.eq_zero_profit = pyo.Constraint(
             self.sectors,
             rule=zero_profit_rule,
-            doc="Zero-profit condition"
+            doc="Zero-profit condition with carbon costs"
         )
 
     def initialize_production_variables(self):

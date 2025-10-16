@@ -728,76 +728,162 @@ class EnhancedItalianDynamicSimulation:
             model.labor_market_eq = pyo.Constraint(
                 model.regions, rule=labor_market_equilibrium)
 
-            # 3. Regional GDP-Employment relationship
+            # 3. Regional GDP-Employment relationship WITH CARBON COST IMPACT
             def regional_gdp_employment(m, r):
                 base_gdp = self.base_data['gdp_regional'][r]
                 base_emp = self.base_data['employment_regional'][r]
+
                 # GDP per worker grows with productivity
-                # 1.5% annual productivity growth
-                productivity_factor = (1 + 0.015) ** years_elapsed
-                return m.gdp_regional[r] == (m.employment_regional[r] / base_emp) * base_gdp * productivity_factor
+                # Italy: 1.0% annual productivity growth (realistic for mature economy)
+                productivity_factor = (1 + 0.010) ** years_elapsed
+
+                # CARBON COST IMPACT (immediate and growing)
+                # Carbon costs reduce GDP through:
+                # 1. Higher production costs → Lower output
+                # 2. Reduced investment → Slower capital accumulation
+                # 3. Terms of trade effects → Competitiveness loss
+                carbon_cost_factor = 1.0
+
+                if scenario == 'ETS1' and year >= 2021:
+                    # ETS1 impacts industry and energy (60% of emissions)
+                    # Industrial regions (Northwest, Northeast) more affected
+                    if r in ['Northwest', 'Northeast']:
+                        # Industrial regions: 0.03% GDP loss per €10/tCO2 (reduced from 0.05%)
+                        # Grows over time as capital stock adjusts
+                        # Full effect after 10 years
+                        adjustment_factor = min(1.0, years_elapsed / 10)
+                        carbon_cost_factor = 1 - \
+                            (0.0003 * carbon_price_ets1 * adjustment_factor)
+                    else:
+                        # Other regions: 0.02% GDP loss per €10/tCO2 (reduced from 0.03%)
+                        adjustment_factor = min(1.0, years_elapsed / 10)
+                        carbon_cost_factor = 1 - \
+                            (0.0002 * carbon_price_ets1 * adjustment_factor)
+
+                elif scenario == 'ETS2' and year >= 2027:
+                    # ETS2 adds buildings and transport (35% more emissions covered)
+                    # Affects all regions more evenly
+                    years_ets2 = year - 2027
+                    # Faster adjustment (8 years)
+                    adjustment_factor = min(1.0, years_ets2 / 8)
+
+                    if r in ['Northwest', 'Northeast']:
+                        # Industrial regions: ETS1 + ETS2 combined effect (reduced impacts)
+                        ets1_impact = 0.0003 * carbon_price_ets1 * \
+                            min(1.0, (year - 2021) / 10)
+                        ets2_impact = 0.0003 * carbon_price_ets2 * adjustment_factor
+                        carbon_cost_factor = 1 - (ets1_impact + ets2_impact)
+                    else:
+                        # Other regions: More affected by ETS2 (transport, buildings) (reduced)
+                        ets1_impact = 0.0002 * carbon_price_ets1 * \
+                            min(1.0, (year - 2021) / 10)
+                        ets2_impact = 0.0003 * carbon_price_ets2 * adjustment_factor
+                        carbon_cost_factor = 1 - (ets1_impact + ets2_impact)
+
+                # Ensure carbon cost factor stays reasonable (max 10% GDP loss)
+                carbon_cost_factor = max(0.90, carbon_cost_factor)
+
+                return m.gdp_regional[r] == (m.employment_regional[r] / base_emp) * base_gdp * productivity_factor * carbon_cost_factor
+
             model.regional_gdp_emp = pyo.Constraint(
                 model.regions, rule=regional_gdp_employment)
 
-            # 4. Energy-GDP relationship by sector (with increased flexibility in later years)
+            # 4. Energy-GDP relationship by sector (REALISTIC ITALIAN ECONOMY)
             def energy_gdp_relationship(m, s, c):
                 base_energy = self.base_data['energy_demand_sectoral'][c][s]
                 base_va = self.base_data['sectoral_value_added'][s]
-                # Energy intensity declines over time
-                # 1.8% annual efficiency improvement
-                efficiency_factor = (1 - 0.018) ** years_elapsed
 
-                # Carbon pricing effects with relaxed constraints in later years
+                # Energy intensity declines over time
+                # Italy: 1.5% annual efficiency improvement (realistic based on NECP targets)
+                efficiency_factor = (1 - 0.015) ** years_elapsed
+
+                # Carbon pricing effects: IMMEDIATE and GROWING
                 carbon_factor = 1.0
-                # Flexibility factor increases in later years to allow more substitution
-                # Up to 50% more flexibility by 2050
-                flexibility_multiplier = 1.0 + (years_elapsed / 30) * 0.5
+
+                # Substitution flexibility grows with time (infrastructure investment needed)
+                # Reaches 40% additional flexibility after 20 years
+                flexibility_multiplier = 1.0 + \
+                    min(0.4, (years_elapsed / 20) * 0.4)
 
                 if scenario in ['ETS1', 'ETS2'] and year >= 2021:
                     if c == 'gas' and carbon_price_ets1 > 0:
-                        # Gas demand reduction with increased flexibility in later years
-                        base_reduction = 0.001 * carbon_price_ets1
+                        # Gas demand reduction: Immediate response, growing with flexibility
+                        # Italy heavily gas-dependent → stronger response needed
+                        base_reduction = 0.0015 * carbon_price_ets1  # 0.15% per €10/tCO2
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
+
                     elif c == 'electricity' and carbon_price_ets1 > 0:
-                        # Electricity demand increase with increased flexibility
-                        base_increase = 0.0005 * carbon_price_ets1
+                        # Electricity demand increase (substitution from fossil fuels)
+                        # Grows as electric vehicles, heat pumps adopted
+                        base_increase = 0.0008 * carbon_price_ets1  # 0.08% per €10/tCO2
                         carbon_factor *= (1 + base_increase *
                                           flexibility_multiplier)
 
+                    elif c == 'other_energy' and carbon_price_ets1 > 0:
+                        # Oil products (transport fuels): Moderate reduction
+                        base_reduction = 0.0012 * carbon_price_ets1
+                        carbon_factor *= (1 - base_reduction *
+                                          flexibility_multiplier)
+
                 return m.energy_sectoral[s, c] == (m.va_sectoral[s] / base_va) * base_energy * efficiency_factor * carbon_factor
-            # 5. Household energy-income relationship
+
+            # 5. Household energy-income relationship (REALISTIC FOR ITALY)
             model.energy_gdp_rel = pyo.Constraint(
                 model.sectors, model.energy_carriers, rule=energy_gdp_relationship)
 
             def household_energy_income(m, r, c):
                 base_energy = self.base_data['household_energy_demand'][c][r]
                 base_income = self.base_data['household_income'][r]
-                # Energy demand elasticity to income
-                # Electricity more income elastic
-                income_elasticity = 0.7 if c == 'electricity' else 0.5
-                # Household efficiency improvements
-                efficiency_factor = (1 - 0.015) ** years_elapsed
 
-                # Carbon pricing effects on households with increased flexibility in later years
+                # Energy demand elasticity to income (Italian data)
+                # Electricity more income elastic than gas/heating oil
+                if c == 'electricity':
+                    income_elasticity = 0.65  # Slightly inelastic
+                elif c == 'gas':
+                    # More inelastic (heating necessity)
+                    income_elasticity = 0.45
+                else:
+                    income_elasticity = 0.50
+
+                # Household efficiency improvements (renovation, appliances)
+                # Italy: 1.2% annual improvement (realistic for building stock)
+                efficiency_factor = (1 - 0.012) ** years_elapsed
+
+                # Carbon pricing effects on households: IMMEDIATE FOR ETS2
                 carbon_factor = 1.0
-                # Flexibility increases in later years (households can adapt better with more time)
-                # Up to 60% more flexibility by 2050
-                flexibility_multiplier = 1.0 + (years_elapsed / 30) * 0.6
+
+                # Household adaptation takes time (building retrofits, behavior change)
+                # Reaches 50% additional flexibility after 15 years
+                flexibility_multiplier = 1.0 + \
+                    min(0.5, (years_elapsed / 15) * 0.5)
 
                 if scenario == 'ETS2' and year >= 2027 and carbon_price_ets2 > 0:
                     if c == 'gas':
-                        # Strong gas reduction with increased flexibility
-                        base_reduction = 0.002 * carbon_price_ets2
+                        # Strong gas reduction for heating (Italy: large potential for heat pumps)
+                        # Immediate effect from price, growing with infrastructure
+                        years_ets2 = year - 2027
+                        base_reduction = 0.0025 * carbon_price_ets2  # 0.25% per €10/tCO2
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
+
                     elif c == 'electricity':
-                        # Heat pump adoption with increased flexibility
-                        base_increase = 0.001 * carbon_price_ets2
+                        # Heat pump and EV adoption increases electricity demand
+                        # Grows faster with better infrastructure
+                        years_ets2 = year - 2027
+                        base_increase = 0.0015 * carbon_price_ets2  # 0.15% per €10/tCO2
                         carbon_factor *= (1 + base_increase *
                                           flexibility_multiplier)
 
+                    elif c == 'other_energy':
+                        # Transport fuel reduction (switch to EVs, public transport)
+                        years_ets2 = year - 2027
+                        base_reduction = 0.0020 * carbon_price_ets2
+                        carbon_factor *= (1 - base_reduction *
+                                          flexibility_multiplier)
+
                 return m.energy_household[r, c] == base_energy * ((m.household_income[r] / base_income) ** income_elasticity) * efficiency_factor * carbon_factor
+
             model.household_energy_income = pyo.Constraint(
                 model.regions, model.energy_carriers, rule=household_energy_income)
 

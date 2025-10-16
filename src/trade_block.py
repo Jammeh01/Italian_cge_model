@@ -365,7 +365,23 @@ class TradeBlock:
         )
 
     def add_price_linkage_constraints(self):
-        """Price linkages between domestic and world markets"""
+        """
+        Price linkages between domestic and world markets
+
+        Note on Carbon Pricing and Trade Competitiveness:
+        Carbon costs affect trade through the price transmission mechanism:
+        1. Carbon_Cost[j] enters production_block zero-profit condition
+        2. This raises pz[j] (producer price) for carbon-intensive sectors
+        3. Higher pz[j] raises pd[j] (domestic price) through CET
+        4. Higher pd[j] affects:
+           - Exports: Less competitive (higher pe[j] through CET equilibrium)
+           - Imports: More competitive (domestic goods relatively expensive)
+        5. Trade balance shifts toward deficit in carbon-pricing scenarios
+
+        This transmission is AUTOMATIC through equilibrium prices - no explicit
+        carbon border adjustment needed unless implementing CBAM (Carbon Border
+        Adjustment Mechanism).
+        """
 
         def export_price_linkage_rule(model, j):
             """pe = epsilon * pWe (export price linkage)"""
@@ -404,13 +420,17 @@ class TradeBlock:
             """
             Zero-profit for CET transformation:
             pz * Z = pd * D + pe * E
+
+            Note: pz[j] includes carbon costs from production_block,
+            so carbon pricing automatically affects domestic price pd[j]
+            and export competitiveness through this equilibrium condition.
             """
             return model.pz[j] * model.Z[j] == model.pd[j] * model.D[j] + model.pe[j] * model.E[j]
 
         self.model.eq_producer_price = pyo.Constraint(
             self.sectors,
             rule=producer_price_rule,
-            doc="Producer price (zero-profit)"
+            doc="Producer price (zero-profit with carbon cost transmission)"
         )
 
     def add_trade_balance_constraints(self):
@@ -582,6 +602,33 @@ class TradeBlock:
             'export_shares': {},
             'import_shares': {}
         }
+
+        # Carbon pricing impacts on trade competitiveness
+        if hasattr(model_solution, 'Carbon_Cost'):
+            carbon_intensive_exports = 0
+            carbon_intensive_imports = 0
+
+            # Identify carbon-intensive sectors (those with carbon costs > 0)
+            for j in self.sectors:
+                carbon_cost = pyo.value(model_solution.Carbon_Cost[j])
+                if carbon_cost > 0:
+                    export_value = results['exports'][j] * \
+                        results['prices']['export'][j]
+                    import_value = results['imports'][j] * \
+                        results['prices']['import'][j]
+                    carbon_intensive_exports += export_value
+                    carbon_intensive_imports += import_value
+
+            results['trade_indicators']['carbon_pricing_impacts'] = {
+                'carbon_intensive_exports': carbon_intensive_exports,
+                'carbon_intensive_imports': carbon_intensive_imports,
+                'carbon_leakage_indicator': (
+                    (carbon_intensive_imports - carbon_intensive_exports) /
+                    (carbon_intensive_imports + carbon_intensive_exports)
+                    if (carbon_intensive_imports + carbon_intensive_exports) > 0 else 0
+                ),
+                'note': 'Positive carbon_leakage_indicator suggests imports displacing domestic production'
+            }
 
         # Calculate trade shares
         if total_exports_value > 0:
