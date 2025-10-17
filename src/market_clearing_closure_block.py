@@ -41,8 +41,8 @@ class MarketClearingClosureBlock:
                                for j in self.sectors) / 1000
             # More flexible bounds to accommodate capital stock growth
             if f == 'Capital':
-                # Very flexible bounds for capital stock to handle multi-year growth (2021-2050)
-                # Base 2021 capital ~118, by 2050 could be ~2000+ with accumulation
+                # Very flexible bounds for capital stock to handle multi-year growth (2021-2040)
+                # Base 2021 capital ~118, by 2040 could be ~1500+ with accumulation
                 return (total_demand * 0.1, total_demand * 20.0)
             else:
                 # Tighter bounds for other factors like labor

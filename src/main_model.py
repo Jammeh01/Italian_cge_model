@@ -1,7 +1,7 @@
 """
 Main Italian CGE Model Integration
 Complete IPOPT-optimized model with ThreeME-style recursive dynamics
-Dynamic CGE model for Italy (2021-2050) with ETS policies
+Dynamic CGE model for Italy (2021-2040) with ETS policies
 """
 
 import pyomo.environ as pyo
@@ -1043,9 +1043,11 @@ class ItalianCGEModel:
                 carbon_revenue = carbon_pricing.get('total_carbon_revenue', 0)
 
                 if ets1_price > 0:
-                    print(f"  EU ETS Phase 4 (ETS1) Price: €{ets1_price:.2f}/tCO2e")
+                    print(
+                        f"  EU ETS Phase 4 (ETS1) Price: €{ets1_price:.2f}/tCO2e")
                 if ets2_price > 0:
-                    print(f"  EU ETS Buildings/Transport (ETS2) Price: €{ets2_price:.2f}/tCO2e")
+                    print(
+                        f"  EU ETS Buildings/Transport (ETS2) Price: €{ets2_price:.2f}/tCO2e")
                 if carbon_revenue > 0:
                     print(f"  Total Carbon Revenue: €{carbon_revenue:,.0f}")
 
@@ -1144,7 +1146,8 @@ class ItalianCGEModel:
             report_lines.append(
                 f"  Covered sectors: {', '.join(model_definitions.ets1_policy['covered_sectors'])}")
         elif scenario_name == 'ETS2':
-            report_lines.append("EU ETS PHASE 4 + BUILDINGS/TRANSPORT SCENARIO PARAMETERS:")
+            report_lines.append(
+                "EU ETS PHASE 4 + BUILDINGS/TRANSPORT SCENARIO PARAMETERS:")
             report_lines.append(
                 f"  ETS1 base price (2021): €{model_definitions.ets1_policy['base_carbon_price']:.2f}/tCO2e")
             report_lines.append(

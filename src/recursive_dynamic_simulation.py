@@ -1,5 +1,5 @@
 """
-RECURSIVE DYNAMIC ITALIAN CGE MODEL - COMPREHENSIVE DYNAMIC SIMULATION (2021-2050)
+RECURSIVE DYNAMIC ITALIAN CGE MODEL - COMPREHENSIVE DYNAMIC SIMULATION (2021-2040)
 =========================================================================
 Recursive dynamic simulation using calibrated 2021 base from comprehensive_results_generator
 Generates all requested indicators with three scenarios: BAU, ETS1 (Industry), ETS2 (+Buildings & Transport)
@@ -419,7 +419,7 @@ class EnhancedItalianDynamicSimulation:
         }
 
         self.base_year = 2021
-        self.final_year = 2050
+        self.final_year = 2040
         self.years = list(range(self.base_year, self.final_year + 1))
 
         print("\n" + "="*70)
@@ -658,7 +658,7 @@ class EnhancedItalianDynamicSimulation:
             # =============================================================
 
             # Adaptive bounds based on year - more flexibility in later years
-            # Up to 50% wider bounds by 2050
+            # Up to 50% wider bounds by 2040
             bounds_multiplier = 1.0 + (years_elapsed / 30) * 0.5
 
             # Regional GDP
@@ -1029,7 +1029,7 @@ class EnhancedItalianDynamicSimulation:
                 solver.options['tol'] = 1e-6  # Tight tolerance for early years
             elif years_elapsed < 25:  # Years 2036-2045
                 solver.options['tol'] = 1e-5  # Moderate tolerance
-            else:  # Years 2046-2050
+            else:  # Years 2036-2040
                 # Relaxed tolerance for late years
                 solver.options['tol'] = 1e-4
 
@@ -2070,13 +2070,13 @@ class EnhancedItalianDynamicSimulation:
 
         all_results = {}
 
-        # Run BAU scenario (2021-2050)
+        # Run BAU scenario (2021-2040)
         all_results['BAU'] = self.run_scenario('BAU')
 
-        # Run ETS1 scenario (2021-2050)
+        # Run ETS1 scenario (2021-2040)
         all_results['ETS1'] = self.run_scenario('ETS1')
 
-        # Run ETS2 scenario (2027-2050)
+        # Run ETS2 scenario (2027-2040)
         all_results['ETS2'] = self.run_scenario('ETS2')
 
         return all_results
@@ -2582,26 +2582,26 @@ class EnhancedItalianDynamicSimulation:
         # GDP Evolution
         if 'BAU' in results and results['BAU']:
             gdp_2021 = results['BAU'][0]['macroeconomy']['real_gdp_total']
-            gdp_2050 = results['BAU'][-1]['macroeconomy']['real_gdp_total']
-            growth_rate = ((gdp_2050 / gdp_2021) ** (1/29) - 1) * 100
+            gdp_2040 = results['BAU'][-1]['macroeconomy']['real_gdp_total']
+            growth_rate = ((gdp_2040 / gdp_2021) ** (1/19) - 1) * 100
 
             print(f"GDP Evolution (BAU scenario):")
             print(f"   2021: €{gdp_2021:.0f} billion")
-            print(f"   2050: €{gdp_2050:.0f} billion")
+            print(f"   2040: €{gdp_2040:.0f} billion")
             print(f"   Average annual growth: {growth_rate:.1f}%")
 
         # Energy Demand Evolution
         if 'BAU' in results and results['BAU']:
             elec_2021 = results['BAU'][0]['energy']['totals']['electricity_total']
-            elec_2050 = results['BAU'][-1]['energy']['totals']['electricity_total']
+            elec_2040 = results['BAU'][-1]['energy']['totals']['electricity_total']
             gas_2021 = results['BAU'][0]['energy']['totals']['gas_total']
-            gas_2050 = results['BAU'][-1]['energy']['totals']['gas_total']
+            gas_2040 = results['BAU'][-1]['energy']['totals']['gas_total']
 
             print(f"\nEnergy Demand Evolution (BAU scenario):")
             print(
-                f"   Electricity: {elec_2021/1000000:.1f} TWh (2021) → {elec_2050/1000000:.1f} TWh (2050)")
+                f"   Electricity: {elec_2021/1000000:.1f} TWh (2021) → {elec_2040/1000000:.1f} TWh (2040)")
             print(
-                f"   Gas: {gas_2021/1000000:.1f} TWh (2021) → {gas_2050/1000000:.1f} TWh (2050)")
+                f"   Gas: {gas_2021/1000000:.1f} TWh (2021) → {gas_2040/1000000:.1f} TWh (2040)")
 
         # RENEWABLE CAPACITY & SHARE - NOW ENDOGENOUS BY SCENARIO!
         print(f"\nRenewable Energy Transition (ENDOGENOUS - Policy-Driven):")
@@ -2609,55 +2609,55 @@ class EnhancedItalianDynamicSimulation:
 
         for scenario in ['BAU', 'ETS1', 'ETS2']:
             if scenario in results and results[scenario]:
-                capacity_2050 = results[scenario][-1]['renewable_investment']['cumulative_renewable_capacity_gw']
+                capacity_2040 = results[scenario][-1]['renewable_investment']['cumulative_renewable_capacity_gw']
                 # Calculate renewable share
                 base_total_capacity = 171.0
-                total_capacity_2050 = base_total_capacity + \
-                    (capacity_2050 - 60.0)
-                renewable_share_2050 = (
-                    capacity_2050 / total_capacity_2050) * 100
+                total_capacity_2040 = base_total_capacity + \
+                    (capacity_2040 - 60.0)
+                renewable_share_2040 = (
+                    capacity_2040 / total_capacity_2040) * 100
 
                 print(
-                    f"   {scenario} 2050: {capacity_2050:.0f} GW capacity, {renewable_share_2050:.1f}% renewable share")
+                    f"   {scenario} 2040: {capacity_2040:.0f} GW capacity, {renewable_share_2040:.1f}% renewable share")
 
         # CO2 Emissions Evolution
         if 'BAU' in results and results['BAU']:
             co2_2021 = results['BAU'][0]['co2_emissions']['total_co2_emissions']
-            co2_2050 = results['BAU'][-1]['co2_emissions']['total_co2_emissions']
+            co2_2040 = results['BAU'][-1]['co2_emissions']['total_co2_emissions']
             intensity_2021 = results['BAU'][0]['co2_emissions']['co2_intensity']
-            intensity_2050 = results['BAU'][-1]['co2_emissions']['co2_intensity']
+            intensity_2040 = results['BAU'][-1]['co2_emissions']['co2_intensity']
 
             print(f"\nCO2 Emissions Evolution (BAU scenario):")
             print(
-                f"   Total CO2: {co2_2021:.1f} MtCO2 (2021) → {co2_2050:.1f} MtCO2 (2050)")
+                f"   Total CO2: {co2_2021:.1f} MtCO2 (2021) → {co2_2040:.1f} MtCO2 (2040)")
             print(
-                f"   CO2 Intensity: {intensity_2021:.0f} tCO2/M€ (2021) → {intensity_2050:.0f} tCO2/M€ (2050)")
+                f"   CO2 Intensity: {intensity_2021:.0f} tCO2/M€ (2021) → {intensity_2040:.0f} tCO2/M€ (2040)")
 
-            # Compare scenarios in 2050
+            # Compare scenarios in 2040
             if 'ETS1' in results and results['ETS1']:
-                ets1_co2_2050 = results['ETS1'][-1]['co2_emissions']['total_co2_emissions']
+                ets1_co2_2040 = results['ETS1'][-1]['co2_emissions']['total_co2_emissions']
                 print(
-                    f"   ETS1 scenario 2050: {ets1_co2_2050:.1f} MtCO2 ({((ets1_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
+                    f"   ETS1 scenario 2040: {ets1_co2_2040:.1f} MtCO2 ({((ets1_co2_2040/co2_2040-1)*100):+.1f}% vs BAU)")
 
             if 'ETS2' in results and results['ETS2']:
-                ets2_co2_2050 = results['ETS2'][-1]['co2_emissions']['total_co2_emissions']
+                ets2_co2_2040 = results['ETS2'][-1]['co2_emissions']['total_co2_emissions']
                 print(
-                    f"   ETS2 scenario 2050: {ets2_co2_2050:.1f} MtCO2 ({((ets2_co2_2050/co2_2050-1)*100):+.1f}% vs BAU)")
+                    f"   ETS2 scenario 2040: {ets2_co2_2040:.1f} MtCO2 ({((ets2_co2_2040/co2_2040-1)*100):+.1f}% vs BAU)")
 
         # Carbon Policy
         if 'ETS1' in results and results['ETS1']:
-            ets1_price_2050 = results['ETS1'][-1]['carbon_policy']['ets1_price']
-            ets1_revenue_2050 = results['ETS1'][-1]['carbon_policy']['total_revenue']
-            print(f"\nCarbon Policy (2050):")
-            print(f"   ETS1 Price: €{ets1_price_2050:.0f}/tCO2")
-            print(f"   ETS1 Revenue: €{ets1_revenue_2050:.1f} billion")
+            ets1_price_2040 = results['ETS1'][-1]['carbon_policy']['ets1_price']
+            ets1_revenue_2040 = results['ETS1'][-1]['carbon_policy']['total_revenue']
+            print(f"\nCarbon Policy (2040):")
+            print(f"   ETS1 Price: €{ets1_price_2040:.0f}/tCO2")
+            print(f"   ETS1 Revenue: €{ets1_revenue_2040:.1f} billion")
 
         if 'ETS2' in results and results['ETS2']:
-            ets2_price_2050 = results['ETS2'][-1]['carbon_policy']['ets2_price']
-            total_revenue_2050 = results['ETS2'][-1]['carbon_policy']['total_revenue']
-            print(f"   ETS2 Price: €{ets2_price_2050:.0f}/tCO2")
+            ets2_price_2040 = results['ETS2'][-1]['carbon_policy']['ets2_price']
+            total_revenue_2040 = results['ETS2'][-1]['carbon_policy']['total_revenue']
+            print(f"   ETS2 Price: €{ets2_price_2040:.0f}/tCO2")
             print(
-                f"   Total Revenue (ETS1+ETS2): €{total_revenue_2050:.1f} billion")
+                f"   Total Revenue (ETS1+ETS2): €{total_revenue_2040:.1f} billion")
 
 
 def main():
@@ -2666,7 +2666,7 @@ def main():
     """
     start_time = time.time()
 
-    print("ENHANCED ITALIAN CGE MODEL - DYNAMIC SIMULATION 2021-2050")
+    print("ENHANCED ITALIAN CGE MODEL - DYNAMIC SIMULATION 2021-2040")
     print("="*70)
     print("Using calibrated 2021 base year from comprehensive_results_generator")
     print("\nScenarios:")

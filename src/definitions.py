@@ -2,7 +2,7 @@
 Definitions and Sets for Italian CGE Model
 Based on actual SAM data with Italian regional disaggregation
 Dynamic recursive model structure following ThreeME approach
-Author: Italian CGE Model (2021-2050)
+Author: Italian CGE Model (2021-2040)
 
 EU ETS Implementation:
 - ETS1 (EU ETS Phase 4): €53.90/tCO2e starting 2021, Market Stability Reserve (no formal ceiling)
@@ -23,23 +23,26 @@ class ModelDefinitions:
     def __init__(self):
         # Model time structure
         self.base_year = 2021
-        self.final_year = 2050
-        self.time_periods = list(range(2021, 2051))  # Annual time steps
+        self.final_year = 2040
+        self.time_periods = list(range(2021, 2041))  # Annual time steps
 
         # Base year calibration targets (Updated to correct 2021 values)
         # €1,782 billion (current prices) - 2021 actual GDP
         self.base_year_gdp = 1782.0
         self.base_year_population = 59.13  # 59.13 million people - 2021 actual population
-        
+
         # Italy 2021 CO2 emissions from fuel combustion (ISPRA data)
         # Total CO2 from fuel combustion: 307.0 MtCO2 (excludes process emissions, land use, etc.)
         # NOTE: Electricity sector represents renewables (0 emissions), fossil power moved to "Other Energy"
         self.italy_2021_co2_fuel_combustion = 307.0  # MtCO2
-        self.italy_2021_co2_intensity_fuel_combustion = 0.172  # tCO2/Million EUR (fuel combustion only)
-        
+        # tCO2/Million EUR (fuel combustion only)
+        self.italy_2021_co2_intensity_fuel_combustion = 0.172
+
         # Renewable energy characteristics
-        self.renewable_electricity_share_2021 = 1.0  # 100% renewable electricity in model
-        self.renewable_technologies = ['solar_pv', 'wind_onshore', 'wind_offshore', 'hydro', 'geothermal', 'biomass']
+        # 100% renewable electricity in model
+        self.renewable_electricity_share_2021 = 1.0
+        self.renewable_technologies = [
+            'solar_pv', 'wind_onshore', 'wind_offshore', 'hydro', 'geothermal', 'biomass']
 
         # Define Italian macro-regions for household disaggregation (actual SAM structure)
         self.italian_regions = {
@@ -102,13 +105,15 @@ class ModelDefinitions:
                 'sam_name': 'Road Transport',
                 'description': 'Road freight and passenger transport fuel combustion',
                 'co2_factor_fuel_combustion': 231.0,  # kg CO2/MWh from fuel combustion
-                'italy_2021_fuel_combustion_mtco2': 89.1  # MtCO2 from road transport fuel combustion
+                # MtCO2 from road transport fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 89.1
             },
             'RAIL': {
                 'sam_name': 'Rail Transport',
                 'description': 'Railway transport fuel combustion',
                 'co2_factor_fuel_combustion': 85.0,   # kg CO2/MWh from fuel combustion
-                'italy_2021_fuel_combustion_mtco2': 1.8   # MtCO2 from rail transport fuel combustion
+                # MtCO2 from rail transport fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 1.8
             },
             'AIR': {
                 'sam_name': 'Air Transport',
@@ -125,8 +130,10 @@ class ModelDefinitions:
             'OTHER_TRANSPORT': {
                 'sam_name': 'Other Transport',
                 'description': 'Other transport fuel combustion',
-                'co2_factor_fuel_combustion': 250.0,  # kg CO2/MWh from fuel combustion (average)
-                'italy_2021_fuel_combustion_mtco2': 3.2   # MtCO2 from other transport fuel combustion
+                # kg CO2/MWh from fuel combustion (average)
+                'co2_factor_fuel_combustion': 250.0,
+                # MtCO2 from other transport fuel combustion
+                'italy_2021_fuel_combustion_mtco2': 3.2
             }
         }
 
@@ -264,9 +271,11 @@ class ModelDefinitions:
         # ETS1 Policy (starts 2021) - EU ETS Phase 4
         self.ets1_policy = {
             'start_year': 2021,
-            'base_carbon_price': 53.90,  # €53.90/tCO2e in 2021 (actual EU ETS price)
+            # €53.90/tCO2e in 2021 (actual EU ETS price)
+            'base_carbon_price': 53.90,
             'price_growth_rate': 0.04,   # 4% annual growth
-            'price_cap': None,           # No formal price ceiling - relies on Market Stability Reserve (MSR)
+            # No formal price ceiling - relies on Market Stability Reserve (MSR)
+            'price_cap': None,
             'has_msr': True,            # Market Stability Reserve mechanism
             # Based on your specification
             'covered_sectors': ['IND', 'GAS', 'OENERGY', 'AIR', 'WATER'],
@@ -277,10 +286,13 @@ class ModelDefinitions:
         # ETS2 Policy (starts 2027) - EU ETS for buildings and transport
         self.ets2_policy = {
             'start_year': 2027,
-            'base_carbon_price': 45.0,   # €45.0/tCO2e in 2027 (EU ETS2 starting price)
+            # €45.0/tCO2e in 2027 (EU ETS2 starting price)
+            'base_carbon_price': 45.0,
             'price_growth_rate': 0.025,  # 2.5% annual growth
-            'price_cap': 45.0,           # Price Stability Mechanism (PSM) ceiling at €45/tCO2e
-            'price_floor': 22.0,         # Price Stability Mechanism (PSM) floor at €22/tCO2e
+            # Price Stability Mechanism (PSM) ceiling at €45/tCO2e
+            'price_cap': 45.0,
+            # Price Stability Mechanism (PSM) floor at €22/tCO2e
+            'price_floor': 22.0,
             'has_psm': True,            # Price Stability Mechanism
             # Based on your specification
             'covered_sectors': ['ROAD', 'OTRANS', 'SERVICES'],
@@ -308,7 +320,7 @@ class ModelDefinitions:
             growth_rate = self.ets1_policy['price_growth_rate']
 
             price = base_price * (1 + growth_rate) ** years_elapsed
-            
+
             # ETS1 has no formal price cap - Market Stability Reserve manages supply
             # In practice, we can set a high ceiling for modeling purposes
             if self.ets1_policy['has_msr']:
@@ -328,7 +340,7 @@ class ModelDefinitions:
             price_floor = self.ets2_policy['price_floor']  # €22.0/tCO2e floor
 
             price = base_price * (1 + growth_rate) ** years_elapsed
-            
+
             # ETS2 has Price Stability Mechanism (PSM) with ceiling and floor
             if self.ets2_policy['has_psm']:
                 return max(price_floor, min(price, price_cap))
