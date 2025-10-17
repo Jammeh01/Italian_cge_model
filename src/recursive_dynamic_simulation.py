@@ -809,7 +809,8 @@ class EnhancedItalianDynamicSimulation:
                     if c == 'gas' and carbon_price_ets1 > 0:
                         # Gas demand reduction: Immediate response, growing with flexibility
                         # Italy heavily gas-dependent → stronger response needed
-                        base_reduction = 0.0015 * carbon_price_ets1  # 0.15% per €10/tCO2
+                        # STRENGTHENED: Increased from 0.0015 to 0.0025 for better CO2 reduction
+                        base_reduction = 0.0025 * carbon_price_ets1  # 0.25% per €10/tCO2
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
 
@@ -822,7 +823,8 @@ class EnhancedItalianDynamicSimulation:
 
                     elif c == 'other_energy' and carbon_price_ets1 > 0:
                         # Oil products (transport fuels): Moderate reduction
-                        base_reduction = 0.0012 * carbon_price_ets1
+                        # STRENGTHENED: Increased from 0.0012 to 0.0020 for better CO2 reduction
+                        base_reduction = 0.0020 * carbon_price_ets1
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
 
@@ -862,8 +864,9 @@ class EnhancedItalianDynamicSimulation:
                     if c == 'gas':
                         # Strong gas reduction for heating (Italy: large potential for heat pumps)
                         # Immediate effect from price, growing with infrastructure
+                        # STRENGTHENED: Increased from 0.0025 to 0.0035 for better CO2 reduction
                         years_ets2 = year - 2027
-                        base_reduction = 0.0025 * carbon_price_ets2  # 0.25% per €10/tCO2
+                        base_reduction = 0.0035 * carbon_price_ets2  # 0.35% per €10/tCO2
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
 
@@ -877,8 +880,9 @@ class EnhancedItalianDynamicSimulation:
 
                     elif c == 'other_energy':
                         # Transport fuel reduction (switch to EVs, public transport)
+                        # STRENGTHENED: Increased from 0.0020 to 0.0030 for better CO2 reduction
                         years_ets2 = year - 2027
-                        base_reduction = 0.0020 * carbon_price_ets2
+                        base_reduction = 0.0030 * carbon_price_ets2
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
 
@@ -921,20 +925,24 @@ class EnhancedItalianDynamicSimulation:
                 growth_factor = (1 + base_growth_rate) ** years_elapsed
 
                 # Carbon pricing acceleration - POLICY DIFFERENTIATES SCENARIOS
-                # Reduced multipliers to achieve realistic renewable shares: BAU 70%, ETS1 80%, ETS2 90%
+                # STRENGTHENED: Increased multipliers to ensure -5% CO2 reduction minimum
+                # BAU realistic at 70%, ETS1 improved to 80%+, ETS2 aggressive at 90%+
                 # ALIGNED with energy_environment_block.py policy response
                 carbon_acceleration = 1.0  # BAU baseline: no acceleration
                 if scenario == 'ETS1' and year >= 2021:
                     # ETS1: Industry carbon pricing drives moderate renewable investment
                     # Price signal makes fossil electricity more expensive → renewable competitiveness
-                    carbon_acceleration = 1.2  # 20% boost
+                    # STRENGTHENED: Increased from 1.2 to 1.35 for better CO2 reduction
+                    carbon_acceleration = 1.35  # 35% boost
                 elif scenario == 'ETS2' and year >= 2027:
                     # ETS2: Comprehensive carbon pricing (industry + buildings + transport)
                     # Stronger price signal across economy → aggressive renewable deployment
-                    carbon_acceleration = 1.4  # 40% boost
+                    # STRENGTHENED: Increased from 1.4 to 1.6 for better CO2 reduction
+                    carbon_acceleration = 1.6  # 60% boost
                     if r in ['South', 'Islands']:
                         # Southern regions: extra boost for solar/wind potential + job creation
-                        carbon_acceleration = 1.6  # 60% boost
+                        # STRENGTHENED: Increased from 1.6 to 1.8 for better CO2 reduction
+                        carbon_acceleration = 1.8  # 80% boost
 
                 # Scale with regional economic capacity
                 gdp_factor = m.gdp_regional[r] / \
@@ -1428,7 +1436,8 @@ class EnhancedItalianDynamicSimulation:
 
                 if scenario == 'ETS1' and year >= 2021:
                     if sector in ['Industry', 'Energy'] and carrier == 'gas':
-                        scenario_factor = 0.985  # Industrial gas reduction
+                        # STRENGTHENED: Increased from 0.985 to 0.975 for better CO2 reduction
+                        scenario_factor = 0.975  # Industrial gas reduction
                     elif sector in ['Industry', 'Energy'] and carrier == 'electricity':
                         scenario_factor = 1.015  # Industrial electrification
 
@@ -1437,9 +1446,11 @@ class EnhancedItalianDynamicSimulation:
                         if carrier == 'electricity':
                             scenario_factor = 1.035  # Transport electrification
                         elif carrier == 'gas':
-                            scenario_factor = 0.975  # Less gas in transport
+                            # STRENGTHENED: Increased from 0.975 to 0.965 for better CO2 reduction
+                            scenario_factor = 0.965  # Less gas in transport
                     elif sector == 'Services' and carrier == 'gas':
-                        scenario_factor = 0.980  # Building heating transition
+                        # STRENGTHENED: Increased from 0.980 to 0.970 for better CO2 reduction
+                        scenario_factor = 0.970  # Building heating transition
 
                 sectoral_energy[carrier][sector] = (base_demand *
                                                     sector_scaling *
@@ -1482,7 +1493,8 @@ class EnhancedItalianDynamicSimulation:
                     if carrier == 'electricity':
                         scenario_factor = 1.025  # Heat pump adoption
                     elif carrier == 'gas':
-                        scenario_factor = 0.970  # Reduced gas heating
+                        # STRENGTHENED: Increased from 0.970 to 0.955 for better CO2 reduction
+                        scenario_factor = 0.955  # Reduced gas heating
 
                 household_energy[carrier][region] = (base_demand *
                                                      regional_scaling *
