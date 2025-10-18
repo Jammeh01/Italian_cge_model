@@ -31,12 +31,17 @@ class ModelDefinitions:
         self.base_year_gdp = 1782.0
         self.base_year_population = 59.13  # 59.13 million people - 2021 actual population
 
-        # Italy 2021 CO2 emissions from fuel combustion (ISPRA data)
-        # Total CO2 from fuel combustion: 307.0 MtCO2 (excludes process emissions, land use, etc.)
-        # NOTE: Electricity sector represents renewables (0 emissions), fossil power moved to "Other Energy"
-        self.italy_2021_co2_fuel_combustion = 307.0  # MtCO2
+        # Italy 2021 CO2 emissions from fuel combustion (ISPRA, GSE, Eurostat)
+        # Total CO2 from fuel combustion: ~466 MtCO2
+        # Breakdown:
+        #   - Electricity grid: 96.7 MtCO2 (310 TWh × 312 kg/MWh)
+        #   - Natural gas end-use: 145.4 MtCO2 (720 TWh × 202 kg/MWh)
+        #   - Other energy (oil + coal - renewables): 224.0 MtCO2
+        # NOTE: This excludes process emissions, agriculture, land use
+        # MtCO2 (updated with grid mix)
+        self.italy_2021_co2_fuel_combustion = 466.1
         # tCO2/Million EUR (fuel combustion only)
-        self.italy_2021_co2_intensity_fuel_combustion = 0.172
+        self.italy_2021_co2_intensity_fuel_combustion = 0.261  # 466.1 / 1782.0
 
         # Renewable energy characteristics
         # 100% renewable electricity in model
@@ -66,35 +71,52 @@ class ModelDefinitions:
         self.load_sam_structure()
 
         # Define energy sectors (disaggregated in SAM)
-        # CO2 factors updated for fuel combustion only - Italy 2021 data (ISPRA)
-        # NOTE: Electricity represents RENEWABLE energy sources
+        # CO2 factors for fuel combustion - Italy 2021 data (ISPRA, GSE, Eurostat)
+        # NOTE: Electricity represents TOTAL GRID MIX (renewable + fossil)
+        # Option B: Grid Mix Approach for CGE realism and decarbonization modeling
         self.energy_sectors_detail = {
             'ELECTRICITY': {
                 'sam_name': 'Electricity',
-                'description': 'RENEWABLE electricity generation (solar, wind, hydro, geothermal, biomass)',
-                # kg CO2/MWh from renewable electricity (no fuel combustion)
-                'co2_factor_fuel_combustion': 0.0,
-                # Total emissions from renewable electricity: 0.0 MtCO2
-                'italy_2021_fuel_combustion_mtco2': 0.0,
-                'renewable_share': 1.0,  # 100% renewable
-                'energy_sources': ['solar', 'wind', 'hydro', 'geothermal', 'sustainable_biomass']
+                'description': 'Total grid electricity (renewable + fossil mix, 35% renewable in 2021)',
+                # kg CO2/MWh from grid electricity (weighted average 2021)
+                # Formula: base_factor × (1 - renewable_share)
+                # 2021: 312 kg/MWh with 35% renewable
+                # As renewable share grows, this factor decreases dynamically
+                'co2_factor_fuel_combustion': 312.0,
+                # Total emissions from electricity grid: 96.7 MtCO2 (310 TWh × 312 kg/MWh)
+                'italy_2021_fuel_combustion_mtco2': 96.7,
+                'renewable_share_2021': 0.35,  # 35% renewable, increases over time
+                'renewable_target_2030': 0.55,  # EU target 55% by 2030
+                'renewable_target_2040': 0.80,  # Projected 80% by 2040
+                'energy_sources': ['renewable_electricity', 'gas_power', 'coal_power', 'oil_power'],
+                'decarbonization_pathway': 'dynamic',  # CO2 factor decreases as renewables grow
+                'consumption_2021_twh': 310.0  # Calibration target
             },
             'GAS': {
                 'sam_name': 'Gas',
-                'description': 'Natural gas supply and combustion (includes gas power plants)',
+                'description': 'Natural gas for heating, industry, commercial (excludes power generation)',
                 # kg CO2/MWh from natural gas combustion
                 'co2_factor_fuel_combustion': 202.0,
-                # Total emissions from gas fuel combustion: 15.6 MtCO2 (gas sector + gas power plants)
-                'italy_2021_fuel_combustion_mtco2': 15.6
+                # Total emissions from gas end-use: 145.4 MtCO2 (720 TWh × 202 kg/MWh)
+                # NOTE: Gas power generation emissions are in ELECTRICITY sector above
+                'italy_2021_fuel_combustion_mtco2': 145.4,
+                'end_uses': ['heating', 'industrial_process', 'commercial'],
+                # Calibration target (non-power only)
+                'consumption_2021_twh': 720.0
             },
             'OTHER_ENERGY': {
                 'sam_name': 'Other Energy',
-                'description': 'Fossil fuel energy (coal/oil power plants, oil refining, coal)',
-                # kg CO2/MWh from fossil fuel combustion (redistributed from electricity)
+                'description': 'Oil products, coal, and direct renewable energy (biomass, solar thermal)',
+                # kg CO2/MWh from fossil fuel combustion (weighted average)
+                # Oil: 350 kg/MWh, Coal: 400 kg/MWh, Renewables: 0 kg/MWh
                 'co2_factor_fuel_combustion': 350.0,
-                # Total emissions from fossil energy fuel combustion: 127.8 MtCO2 (includes former electricity emissions)
-                'italy_2021_fuel_combustion_mtco2': 127.8,
-                'fossil_sources': ['coal', 'oil', 'petroleum_products']
+                # Total emissions: 224.0 MtCO2 (580 TWh oil + 60 TWh coal, excluding 150 TWh renewables)
+                'italy_2021_fuel_combustion_mtco2': 224.0,
+                'fossil_sources': ['oil_products', 'petroleum', 'coal', 'direct_renewables'],
+                'oil_products_twh': 580.0,
+                'coal_twh': 60.0,
+                'direct_renewables_twh': 150.0,  # Biomass, solar thermal, etc.
+                'consumption_2021_twh': 790.0  # Calibration target
             }
         }
 

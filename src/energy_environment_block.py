@@ -201,29 +201,96 @@ class EnergyEnvironmentBlock:
 
         # Energy-monetary conversion coefficients
         def get_energy_coeff(model, es, user):
+            """
+            Energy coefficient (physical/monetary conversion) - RECALIBRATED
+
+            Calibrated to match official 2021 Italian energy statistics:
+            - Electricity: 310 TWh (grid mix, 35% renewable)
+            - Gas: 720 TWh (end-use only, excludes power generation)
+            - Other Energy: 790 TWh (oil + coal + direct renewables)
+            - Total: 1,820 TWh (GSE, Eurostat, IEA)
+
+            Scaling factors applied:
+            - Electricity: ×2.08
+            - Gas: ×2.48
+            - Other Energy: ×11.37
+            """
             energy_data = self.params.get('energy', {})
             energy_coeffs = energy_data.get('energy_coeffs', {})
-            return energy_coeffs.get(es, 1.0)  # Default 1.0
+            base_coeff = energy_coeffs.get(es, 1.0)
+
+            # Apply calibration scaling factors to match official statistics
+            scaling_factors = {
+                'Electricity': 2.0836,  # Scale to 310 TWh
+                'Gas': 2.4777,          # Scale to 720 TWh
+                'Other Energy': 11.3669  # Scale to 790 TWh
+            }
+
+            calibration_factor = scaling_factors.get(es, 1.0)
+
+            # Regional adjustments for households
+            if user in self.household_regions:
+                regional_adjustments = {
+                    'NW': {
+                        'Electricity': 1.15,  # 15% above average (industrial)
+                        # 32% above average (heating + industry)
+                        'Gas': 1.32,
+                        'Other Energy': 0.90
+                    },
+                    'NE': {
+                        'Electricity': 1.09,
+                        'Gas': 1.24,
+                        'Other Energy': 0.95
+                    },
+                    'CENTER': {
+                        'Electricity': 1.00,
+                        'Gas': 1.00,
+                        'Other Energy': 1.05
+                    },
+                    'SOUTH': {
+                        'Electricity': 0.83,  # Lower consumption
+                        'Gas': 0.67,          # Warmer climate
+                        'Other Energy': 1.10
+                    },
+                    'ISLANDS': {
+                        'Electricity': 0.89,
+                        'Gas': 0.45,          # Limited gas infrastructure
+                        'Other Energy': 1.20  # Oil-dependent
+                    }
+                }
+
+                region_factors = regional_adjustments.get(user, {})
+                regional_factor = region_factors.get(es, 1.0)
+
+                return base_coeff * calibration_factor * regional_factor
+
+            # For sectors, apply base calibration only
+            return base_coeff * calibration_factor
 
         self.model.coe = pyo.Param(
             self.energy_sectors, self.sectors + self.household_regions,
             initialize=get_energy_coeff,
             mutable=True,
-            doc="Energy coefficient (physical/monetary conversion)"
+            doc="Energy coefficient (physical/monetary conversion) - RECALIBRATED to official 2021 data"
         )
 
         # CO2 emission factors by energy type from fuel combustion (for MWh annual consumption)
         def get_co2_factor(model, es):
             # Based on actual Italian fuel combustion emission factors - Italy 2021 data
-            # Source: ISPRA, IEA (Italian Institute for Environmental Protection and Research)
-            # NOTE: Electricity reflects Italy's actual grid mix (~35% renewable, ~65% fossil fuels)
-            # Grid average: 0.312 tCO2/MWh = 312 kg CO2/MWh (2021 data)
+            # Source: ISPRA, GSE, Eurostat, IEA
+            # NOTE: Electricity reflects Italy's GRID MIX (35% renewable, 65% fossil in 2021)
+            # The dynamic emission factor in emissions constraint adjusts for changing renewable share
             co2_factors_fuel_combustion = {
-                # kg CO2/MWh from grid electricity (mix of renewable + fossil: 55.9% gas, 35% renewable, 5.3% coal, 3.8% oil)
-                'Electricity': 312.0,
+                # kg CO2/MWh from grid electricity (weighted average for 2021 mix)
+                # Base factor for 100% fossil generation: 480 kg CO2/MWh
+                # With 35% renewable: 480 × (1 - 0.35) = 312 kg CO2/MWh
+                # This factor decreases dynamically as renewable share increases
+                # Base factor for 100% fossil (used in dynamic calculation)
+                'Electricity': 480.0,
                 # kg CO2/MWh from natural gas combustion (for heating, industrial processes)
                 'Gas': 202.0,
-                # kg CO2/MWh from fossil fuel combustion (oil products for transport, oil refining)
+                # kg CO2/MWh from fossil fuel combustion (oil products, coal)
+                # Weighted average: oil ~350 kg, coal ~400 kg, renewables 0 kg
                 'Other Energy': 350.0
             }
             # Default average fuel combustion factor
@@ -360,19 +427,34 @@ class EnergyEnvironmentBlock:
         """CO2 emission calculation constraints from fuel combustion"""
 
         def emissions_by_user_rule(model, user):
-            """CO2 emissions from fuel combustion by user (sectors and households)"""
-            # Calculate CO2 emissions from energy consumption using fuel combustion emission factors
-            # For electricity, adjust emission factor based on renewable share
-            # As renewable share increases, electricity emissions decrease
+            """CO2 emissions from fuel combustion by user (sectors and households)
+
+            For ELECTRICITY: Uses dynamic emission factor based on renewable share
+            - Base factor (2021): 312 kg CO2/MWh with 35% renewable
+            - As renewable share increases, emission factor decreases
+            - Formula: effective_factor = base_factor × (1 - renewable_share)
+            - This captures the decarbonization of the electricity grid over time
+
+            For GAS and OTHER ENERGY: Uses fixed emission factors
+            """
             fuel_combustion_emissions = 0
 
             for es in self.energy_sectors:
                 if es == 'Electricity':
                     # Dynamic electricity emission factor based on renewable share
-                    # Base grid factor: 312 kg CO2/MWh (2021 mix)
+                    # Base grid factor: 312 kg CO2/MWh (2021 grid mix: 35% renewable, 65% fossil)
                     # As renewable share increases, emissions from electricity decrease
-                    # Formula: base_factor * (1 - renewable_share)
-                    base_elec_factor = 312.0  # kg CO2/MWh for 2021 mix
+                    # Formula: effective_factor = base_factor × (1 - renewable_share)
+                    #
+                    # Examples:
+                    #   2021: 35% renewable → 312 × (1 - 0.35) = 203 kg/MWh
+                    #   2030: 55% renewable → 312 × (1 - 0.55) = 140 kg/MWh
+                    #   2040: 80% renewable → 312 × (1 - 0.80) = 62 kg/MWh
+                    #
+                    # NOTE: Base factor of 312 assumes that at 0% renewable,
+                    # fossil generation would be 480 kg/MWh (weighted average gas/coal/oil)
+                    # Calculation: 480 × 0.65 = 312 for the fossil portion
+                    base_elec_factor = 480.0  # kg CO2/MWh for 100% fossil generation
                     effective_elec_factor = base_elec_factor * \
                         (1 - model.Renewable_share)
                     fuel_combustion_emissions += model.Energy_demand[es,

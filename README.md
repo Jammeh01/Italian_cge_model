@@ -13,44 +13,6 @@ This recursive dynamic CGE model provides comprehensive analysis of:
 - **CO2 emissions analysis** with carbon pricing mechanisms
 - **Regional disaggregation** across Italy's five macro-regions
 
-## Project Structure
-
-```
-italian_cge_model/
-├── src/                                    # Core model source code
-│   ├── recursive_dynamic_simulation.py     # Main recursive dynamic simulation engine (2021-2040)
-│   ├── calibration.py                      # Base year calibration module
-│   ├── main_model.py                       # Core CGE model implementation
-│   ├── production_block.py                 # Production functions (CES/Cobb-Douglas)
-│   ├── income_expenditure_block.py         # Household & government behavior
-│   ├── trade_block.py                      # Import/export with Armington
-│   ├── energy_environment_block.py         # Energy demand & CO2 emissions
-│   ├── macro_indicators_block.py           # GDP, CPI, PPI calculations
-│   ├── market_clearing_closure_block.py    # Market equilibrium & closure rules
-│   ├── definitions.py                      # Model parameters and definitions
-│   ├── data_processor.py                   # Data processing utilities
-│   ├── italy_2021_data.py                  # Base year data for Italy 2021
-│   ├── visualisation.py                    # Results visualization tools
-│   └── results/                            # Generated results and outputs
-├── data/
-│   └── SAM.xlsx                            # Social Accounting Matrix (2021)
-├── figures/                                # Geographic data and output figures
-│   ├── Italy_macro_regions_5.geojson       # Italian macro-regions boundaries
-│   ├── NUTS_RG_20M_2021_4326.geojson      # NUTS regions data
-│   └── GDP_Evolution_2021_2040.png/.pdf    # GDP visualization outputs
-├── istat_data/                             # ISTAT geographic shapefiles
-│   └── Limiti01012021_g/                   # Administrative boundaries
-├── ipopt_solver/                           # IPOPT solver binaries
-│   └── Ipopt-3.14.16-win64-msvs2019-md/   # Windows 64-bit IPOPT
-├── results/                                # Model output files
-│   ├── Italian_CGE_Enhanced_Dynamic_Results_*.xlsx  # Comprehensive results
-│   ├── Italian_CGE_BaseYear_Calibration_*.xlsx      # Calibration outputs
-│   └── *.pdf, *.png                        # Visualization figures
-├── visualize_gdp_results.py                # GDP scenario comparison script
-├── visualize_gdp_scenarios.py              # Additional GDP visualization
-└── requirements.txt                        # Python dependencies
-```
-
 ## Features
 
 ### Core Capabilities

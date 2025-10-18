@@ -54,40 +54,99 @@ SERVICES_EMPLOYMENT = 16380000
 # =============================================================================
 # ENERGY SECTOR DATA (2021 ACTUAL DATA)
 # =============================================================================
+# Source: GSE (Gestore Servizi Energetici), Eurostat, IEA
+# Total Final Energy Consumption (TFEC) 2021: 1,370 TWh (117.8 Mtoe)
 
-# Electricity Sector (IEA Energy Statistics 2021)
+# Electricity Sector (Terna, GSE, IEA Energy Statistics 2021)
+# NOTE: Model uses TOTAL grid electricity (renewable + fossil mix)
 ELECTRICITY_GENERATION = 289.7  # TWh total electricity generation
-ELECTRICITY_CONSUMPTION = 310.0  # TWh total electricity consumption
-ELECTRICITY_RENEWABLE_SHARE = 0.35  # 35.0% renewable electricity (updated data)
-ELECTRICITY_CO2_INTENSITY = 0.312    # 0.312 tCO2/MWh (grid average)
+# TWh total electricity consumption (including imports)
+ELECTRICITY_CONSUMPTION = 310.0
+# 35.0% renewable electricity (actual 2021 data)
+ELECTRICITY_RENEWABLE_SHARE = 0.35
+ELECTRICITY_CO2_INTENSITY = 0.312    # 0.312 tCO2/MWh (grid average emissions)
 
-# Electricity Generation Mix (2021) - Updated with new component breakdown
+# Electricity Generation Mix (2021) - Detailed breakdown
 ELECTRICITY_MIX = {
-    'gas': 0.559,        # 55.9% natural gas
-    'renewables': 0.35,  # 35.0% renewables (hydro, wind, solar, geothermal, biomass)
-    'coal': 0.053,       # 5.3% coal
-    'oil': 0.015,        # 1.5% oil
-    'other': 0.023       # 2.3% other sources
+    'gas': 0.559,        # 55.9% natural gas (161.9 TWh)
+    # 35.0% renewables (101.5 TWh: hydro, wind, solar, geothermal, biomass)
+    'renewables': 0.35,
+    'coal': 0.053,       # 5.3% coal (15.4 TWh)
+    'oil': 0.015,        # 1.5% oil (4.4 TWh)
+    'other': 0.023       # 2.3% other sources (6.5 TWh)
 }
 
-# Natural Gas Sector (SNAM, IEA Data 2021)
-GAS_CONSUMPTION = 76.1    # bcm total natural gas consumption
+# Renewable Electricity Breakdown (2021) - 101.5 TWh total
+RENEWABLE_ELECTRICITY_DETAIL = {
+    'hydro': 46.0,       # TWh (15.9% of total generation)
+    'wind': 20.5,        # TWh (7.1% of total generation)
+    'solar_pv': 25.0,    # TWh (8.6% of total generation)
+    'geothermal': 6.1,   # TWh (2.1% of total generation)
+    'bioenergy': 10.9    # TWh (3.8% of total generation)
+}
+
+# Natural Gas Sector (SNAM, GSE, IEA Data 2021)
+# NOTE: Gas consumption EXCLUDES gas used for electricity generation
+# Gas power generation is embedded in electricity consumption above
+GAS_CONSUMPTION_TOTAL = 76.1    # bcm total natural gas consumption
+# bcm excluding power generation (720 TWh thermal)
+GAS_CONSUMPTION_NON_POWER = 46.6
+# bcm for power generation (embedded in electricity)
+GAS_CONSUMPTION_POWER = 29.5
 GAS_IMPORTS = 72.3        # bcm natural gas imports (95% import dependency)
 GAS_DOMESTIC_PRODUCTION = 3.3  # bcm domestic production
 
-# Gas Consumption by Sector (2021)
+# Gas Consumption by End-Use Sector (2021) - Excluding power generation
 GAS_CONSUMPTION_SECTORS = {
-    'electricity': 29.5,  # bcm (38.8% - power generation)
-    'industry': 15.8,     # bcm (20.8% - industrial processes)
-    'residential': 20.1,  # bcm (26.4% - heating and cooking)
-    'commercial': 7.2,    # bcm (9.5% - commercial buildings)
-    'other': 3.5          # bcm (4.6% - other uses)
+    'industry': 15.8,     # bcm (33.9% - industrial processes, not power)
+    'residential': 20.1,  # bcm (43.1% - heating and cooking)
+    'commercial': 7.2,    # bcm (15.4% - commercial buildings)
+    'other': 3.5          # bcm (7.5% - other uses)
+    # NOTE: 'electricity' 29.5 bcm is NOW in electricity consumption above
 }
 
-# Oil and Other Energy (Ministry of Economic Development 2021)
-OIL_CONSUMPTION = 58.8    # Mt oil consumption
+# Oil and Other Energy (GSE, Ministry of Economic Development 2021)
+OIL_CONSUMPTION = 58.8    # Mt oil consumption (approx 580 TWh thermal)
+COAL_CONSUMPTION = 6.5    # Mt coal consumption (approx 60 TWh thermal)
+# Mtoe direct renewable use (biomass, solar thermal = 174 TWh)
+DIRECT_RENEWABLES = 15.0
 RENEWABLE_CAPACITY = 60.1  # GW renewable energy capacity
 REFINING_CAPACITY = 1.9   # Million barrels/day refining capacity
+
+# =============================================================================
+# ENERGY CALIBRATION TARGETS FOR CGE MODEL (2021)
+# =============================================================================
+# Based on GSE/Eurostat official statistics - Option B (Grid Mix)
+
+ENERGY_CALIBRATION_TARGETS_2021 = {
+    # Total grid electricity (renewable 35% + fossil 65%)
+    # Includes all electricity generation embedded emissions
+    'electricity_total_twh': 310.0,
+    'electricity_renewable_share': 0.35,
+    'electricity_co2_intensity_kg_per_mwh': 312.0,  # Grid average
+
+    # Natural gas for heating, industry, commercial (NOT power generation)
+    # Power generation gas is embedded in electricity above
+    'gas_non_power_twh': 720.0,  # 46.6 bcm × 15.45 MWh/bcm × 1e-6
+    'gas_co2_intensity_kg_per_mwh': 202.0,  # Natural gas combustion
+
+    # Oil products + coal + direct renewables
+    # 580 (oil) + 60 (coal) + 150 (direct renewables)
+    'other_energy_twh': 790.0,
+    'other_energy_co2_intensity_kg_per_mwh': 350.0,  # Weighted average
+
+    # Total final energy consumption
+    'total_tfec_twh': 1820.0,  # 310 + 720 + 790
+
+    # Note on calculation:
+    # Total electricity (310 TWh) includes:
+    #   - Renewable generation: 101.5 TWh (0 emissions)
+    #   - Gas generation: 161.9 TWh (embedded in electricity grid average)
+    #   - Coal generation: 15.4 TWh (embedded in electricity grid average)
+    #   - Oil generation: 4.4 TWh (embedded in electricity grid average)
+    # Gas sector (720 TWh) is ONLY non-power uses
+    # Other Energy (790 TWh) is oil products, coal, and direct renewables
+}
 
 # =============================================================================
 # REGIONAL ENERGY CONSUMPTION (2021 DATA)
