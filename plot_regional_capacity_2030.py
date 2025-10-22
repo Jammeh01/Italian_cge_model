@@ -60,13 +60,6 @@ if not row_2030.empty:
     ax.grid(True, alpha=0.3, axis='y', linestyle='--')
     plt.setp(ax.xaxis.get_majorticklabels(), rotation=0, ha='center')
 
-    # Add value labels on bars
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height,
-                f'{height:.1f} GW', ha='center', va='bottom',
-                fontsize=10, fontweight='bold')
-
     # Add percentage of total
     total_capacity = sum(regional_cap_ets2)
     for i, bar in enumerate(bars):
