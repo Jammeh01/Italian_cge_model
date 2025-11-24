@@ -12,7 +12,7 @@ from definitions import model_definitions
 
 class DataProcessor:
     """
-    Process and calibrate actual SAM data for the CGE model
+    Process and calibrate actual SAM data for the CGE-I5 model
     Implements ThreeME-style calibration procedures
     """
 
@@ -178,7 +178,7 @@ class DataProcessor:
 
         # Energy and transport classifications
         self.energy_sectors = [s for s in self.production_sectors
-                               if s in ['Electricity', 'Gas', 'Other Energy']]
+                               if s in ['Renewables', 'Gas', 'Other Energy']]
         self.transport_sectors = [s for s in self.production_sectors
                                   if 'Transport' in s]
 
@@ -707,7 +707,7 @@ class DataProcessor:
         self.household_regions = model_definitions.household_regions_sam
         self.factors = model_definitions.factors_sam
         self.institutions = model_definitions.institutions_sam
-        self.energy_sectors = ['Electricity', 'Gas', 'Other Energy']
+        self.energy_sectors = ['Renewables', 'Gas', 'Other Energy']
         self.transport_sectors = [
             s for s in self.production_sectors if 'Transport' in s]
 
@@ -801,7 +801,7 @@ class DataProcessor:
         for sector in self.production_sectors:
             if sector == 'Industry':
                 share = 0.4
-            elif sector in ['Electricity', 'Gas', 'Other Energy']:
+            elif sector in ['Renewables', 'Gas', 'Other Energy']:
                 share = 0.1
             else:
                 share = 0.5 / (len(self.production_sectors) - 4)
@@ -889,7 +889,7 @@ class DataProcessor:
                 'consumption_rate': 0.78,
                 'savings_rate': 0.22,
                 # kWh per capita (industrial regions)
-                'energy_demand_elec': 1350,
+                'energy_demand_renew': 1350,
                 # m³ per capita (higher heating needs)
                 'energy_demand_gas': 950,
                 # 6.2% unemployment (lowest in Italy)
@@ -903,7 +903,7 @@ class DataProcessor:
                 'per_capita_income': 35100,
                 'consumption_rate': 0.80,
                 'savings_rate': 0.20,
-                'energy_demand_elec': 1280,
+                'energy_demand_renew': 1280,
                 'energy_demand_gas': 890,
                 'unemployment_rate': 0.068   # 6.8% unemployment
             },
@@ -915,7 +915,7 @@ class DataProcessor:
                 'per_capita_income': 32400,
                 'consumption_rate': 0.82,
                 'savings_rate': 0.18,
-                'energy_demand_elec': 1180,
+                'energy_demand_renew': 1180,
                 'energy_demand_gas': 720,
                 'unemployment_rate': 0.087   # 8.7% unemployment
             },
@@ -928,7 +928,7 @@ class DataProcessor:
                 # Higher consumption rate (lower savings ability)
                 'consumption_rate': 0.92,
                 'savings_rate': 0.08,
-                'energy_demand_elec': 980,
+                'energy_demand_renew': 980,
                 'energy_demand_gas': 480,    # Lower gas usage (warmer climate)
                 # 15.8% unemployment (highest in Italy)
                 'unemployment_rate': 0.158
@@ -940,7 +940,7 @@ class DataProcessor:
                 'per_capita_income': 22600,  # €22,600 per person
                 'consumption_rate': 0.90,
                 'savings_rate': 0.10,
-                'energy_demand_elec': 1050,  # Higher electricity for cooling
+                'energy_demand_renew': 1050,  # Higher Renewables for cooling
                 'energy_demand_gas': 320,    # Lower gas usage (warmer climate)
                 'unemployment_rate': 0.175   # 17.5% unemployment (very high)
             }
@@ -977,7 +977,7 @@ class DataProcessor:
                 # tCO2/k€ (livestock, fertilizers)
                 'co2_factor': 0.65,
                 # kWh/€ output (irrigation, processing)
-                'energy_intensity_elec': 0.025,
+                'energy_intensity_renew': 0.025,
                 # m³/€ output (heating greenhouses)
                 'energy_intensity_gas': 0.018,
                 # Lower labor share (capital intensive farming)
@@ -998,7 +998,7 @@ class DataProcessor:
                 # tCO2/k€ (steel, cement, chemicals)
                 'co2_factor': 1.85,
                 # kWh/€ output (manufacturing processes)
-                'energy_intensity_elec': 0.095,
+                'energy_intensity_renew': 0.095,
                 # m³/€ output (industrial heating)
                 'energy_intensity_gas': 0.128,
                 'labor_share': 0.65,                  # Industrial labor share
@@ -1018,29 +1018,29 @@ class DataProcessor:
                 # tCO2/k€ (offices, retail, low emissions)
                 'co2_factor': 0.18,
                 # kWh/€ output (offices, retail)
-                'energy_intensity_elec': 0.032,
+                'energy_intensity_renew': 0.032,
                 # m³/€ output (space heating)
                 'energy_intensity_gas': 0.021,
                 'labor_share': 0.75,                  # Services are labor intensive
                 'productivity_growth': 0.012          # 1.2% annual productivity growth
             },
-            'Electricity': {
+            'Renewables': {
                 # €49.9B (2.8% of GDP, actual 2021)
                 'gross_output': target_gdp * 0.028,
-                # 64.3% value added ratio (electricity)
+                # 64.3% value added ratio (Renewables)
                 'value_added_share': 0.643,
                 # 0.63% employment (145k workers)
                 'employment_share': 0.0063,
-                # 2.4% of electricity exported (€1.2B)
+                # 2.4% of Renewables exported (€1.2B)
                 'export_rate': 0.024,
                 # 5.5% import penetration (€2.7B)
                 'import_rate': 0.055,
                 # 0.312 tCO2/MWh (actual 2021 grid mix)
                 'co2_factor': 0.312,
-                'energy_intensity_elec': 0.0,        # Self-consumption
-                'energy_intensity_gas': 0.559,       # 55.9% gas in electricity generation
+                'energy_intensity_renew': 0.0,        # Self-consumption
+                'energy_intensity_gas': 0.559,       # 55.9% gas in Renewables generation
                 'labor_share': 0.45,                  # Energy is capital intensive
-                # 35.0% renewable electricity
+                # 35.0% renewable Renewables
                 'renewable_share': 0.35,
                 'total_generation': 289.7,            # TWh (actual 2021)
                 'capacity_factor': 0.42,              # 42% average capacity factor
@@ -1059,7 +1059,7 @@ class DataProcessor:
                 # 2.03 tCO2/k€ (natural gas combustion)
                 'co2_factor': 2.03,
                 # kWh/€ output (compressor stations)
-                'energy_intensity_elec': 0.015,
+                'energy_intensity_renew': 0.015,
                 'energy_intensity_gas': 0.0,         # Self-consumption
                 'labor_share': 0.45,                  # Energy is capital intensive
                 'total_consumption': 76.1,            # bcm (actual 2021)
@@ -1081,7 +1081,7 @@ class DataProcessor:
                 # tCO2/k€ (oil products, high emissions)
                 'co2_factor': 2.78,
                 # kWh/€ output (refineries)
-                'energy_intensity_elec': 0.028,
+                'energy_intensity_renew': 0.028,
                 # m³/€ output (refining processes)
                 'energy_intensity_gas': 0.045,
                 'labor_share': 0.45,                  # Energy is capital intensive
@@ -1103,7 +1103,7 @@ class DataProcessor:
                 'import_rate': 0.08,                  # 8% import penetration
                 # tCO2/k€ (diesel, petrol)
                 'co2_factor': 2.45,
-                'energy_intensity_elec': 0.012,      # kWh/€ output
+                'energy_intensity_renew': 0.012,      # kWh/€ output
                 'energy_intensity_gas': 0.008,       # m³/€ output
                 'labor_share': 0.68,                  # Transport is labor intensive
                 'modal_share': 0.865,                 # 86.5% of freight transport
@@ -1118,7 +1118,7 @@ class DataProcessor:
                 'import_rate': 0.08,
                 # tCO2/k€ (electric trains, lower emissions)
                 'co2_factor': 0.68,
-                'energy_intensity_elec': 0.185,      # Higher electricity use
+                'energy_intensity_renew': 0.185,      # Higher Renewables use
                 'energy_intensity_gas': 0.002,
                 'labor_share': 0.68,
                 'modal_share': 0.089,                 # 8.9% of freight transport
@@ -1134,7 +1134,7 @@ class DataProcessor:
                 'import_rate': 0.25,
                 # tCO2/k€ (aviation fuel, very high)
                 'co2_factor': 4.12,
-                'energy_intensity_elec': 0.025,
+                'energy_intensity_renew': 0.025,
                 'energy_intensity_gas': 0.003,
                 'labor_share': 0.68,
                 # Million passengers (2021, COVID affected)
@@ -1150,7 +1150,7 @@ class DataProcessor:
                 'export_rate': 0.45,
                 'import_rate': 0.15,
                 'co2_factor': 1.85,                   # tCO2/k€ (marine fuel)
-                'energy_intensity_elec': 0.018,
+                'energy_intensity_renew': 0.018,
                 'energy_intensity_gas': 0.004,
                 'labor_share': 0.68,
                 # Million tonnes (actual 2021)
@@ -1166,7 +1166,7 @@ class DataProcessor:
                 'export_rate': 0.15,
                 'import_rate': 0.08,
                 'co2_factor': 1.25,                   # tCO2/k€
-                'energy_intensity_elec': 0.035,
+                'energy_intensity_renew': 0.035,
                 'energy_intensity_gas': 0.015,
                 'labor_share': 0.68,
                 'modal_share': 0.046,                 # 4.6% other transport modes
@@ -1219,14 +1219,14 @@ class DataProcessor:
                     'Capital': capital_payment
                 },
                 'input_coefficients': input_coeffs,
-                'energy_intensity_elec': params['energy_intensity_elec'],
+                'energy_intensity_renew': params['energy_intensity_renew'],
                 'energy_intensity_gas': params['energy_intensity_gas'],
                 'co2_factor': params['co2_factor'],
                 'employment_share': params['employment_share'],
                 'export_rate': params['export_rate'],
                 'import_rate': params['import_rate'],
                 'labor_share': labor_share,
-                'is_energy_sector': sector_name in ['Electricity', 'Gas', 'Other Energy'],
+                'is_energy_sector': sector_name in ['Renewables', 'Gas', 'Other Energy'],
                 'is_transport_sector': 'Transport' in sector_name
             }
 
@@ -1257,7 +1257,7 @@ class DataProcessor:
             'Industry': gov_consumption * 0.12,
             # 2% on agriculture (subsidies, rural development)
             'Agriculture': gov_consumption * 0.02,
-            'Electricity': gov_consumption * 0.03,         # 3% on energy
+            'Renewables': gov_consumption * 0.03,         # 3% on energy
             'Gas': gov_consumption * 0.02,                 # 2% on gas
             'Other Energy': gov_consumption * 0.01,        # 1% on other energy
         }
@@ -1312,7 +1312,7 @@ class DataProcessor:
             'Industry': total_investment * 0.28,
             # €116.0B services investment (buildings, IT)
             'other Sectors (14)': total_investment * 0.35,
-            'Electricity': total_investment * 0.12,    # €39.8B electricity infrastructure
+            'Renewables': total_investment * 0.12,    # €39.8B Renewables infrastructure
             'Gas': total_investment * 0.08,            # €26.5B gas infrastructure
             # €33.1B renewable energy & oil refining
             'Other Energy': total_investment * 0.10,
@@ -1343,7 +1343,7 @@ class DataProcessor:
                 total_investment
 
             # Depreciation rates by sector type (annual rates)
-            if sector in ['Electricity', 'Gas', 'Other Energy']:
+            if sector in ['Renewables', 'Gas', 'Other Energy']:
                 # 4% for energy infrastructure (25-year life)
                 depreciation_rates[sector] = 0.04
             elif 'Transport' in sector:
@@ -1396,7 +1396,7 @@ class DataProcessor:
                 armington_elasticity = 2.8  # High substitutability for food products
             elif sector_name == 'Industry':
                 armington_elasticity = 1.9  # Medium substitutability for manufactured goods
-            elif sector_name in ['Electricity', 'Gas', 'Other Energy']:
+            elif sector_name in ['Renewables', 'Gas', 'Other Energy']:
                 armington_elasticity = 0.8  # Low substitutability for energy
             elif 'Transport' in sector_name:
                 armington_elasticity = 1.5  # Medium-low substitutability for transport services
@@ -1444,8 +1444,8 @@ class DataProcessor:
             'Industry': 0.087,
             # 15.6% effective rate (services, full VAT application)
             'other Sectors (14)': 0.156,
-            # 18.5% effective rate (VAT + electricity excise)
-            'Electricity': 0.185,
+            # 18.5% effective rate (VAT + Renewables excise)
+            'Renewables': 0.185,
             # 19.5% effective rate (VAT + gas excise)
             'Gas': 0.195,
             # 34.8% effective rate (VAT + high fuel excise taxes)
@@ -1465,7 +1465,7 @@ class DataProcessor:
             'Industry': 0.045,              # 4.5% average industrial tariffs
             # 1.2% average services tariffs (very low)
             'other Sectors (14)': 0.012,
-            'Electricity': 0.0,             # 0% electricity tariffs
+            'Renewables': 0.0,             # 0% Renewables tariffs
             'Gas': 0.0,                     # 0% gas tariffs
             'Other Energy': 0.025,          # 2.5% other energy tariffs
             'Road Transport': 0.008,        # 0.8% transport services tariffs
@@ -1770,3 +1770,4 @@ if __name__ == "__main__":
 
     else:
         print("Data processing failed")
+

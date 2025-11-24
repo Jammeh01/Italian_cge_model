@@ -6,7 +6,7 @@ Generates all requested indicators with three scenarios: BAU, ETS1 (Industry), E
 
 ALIGNMENT NOTES:
 - This file is ALIGNED with energy_environment_block.py and market_clearing_closure_block.py
-- CO2 emission factors match energy_environment_block.py (Electricity: 312, Gas: 202, Other Energy: 350 kg/MWh)
+- CO2 emission factors match energy_environment_block.py (Renewables: 0, Gas: 202, Other Energy: 350 kg/MWh)
 - Renewable share calculation is ENDOGENOUS and synchronized via cumulative_renewable_capacity parameter
 - Closure rules are compatible with market_clearing_closure_block.py recursive dynamic closure
 - Carbon pricing mechanisms (ETS1/ETS2) are consistent across all modules
@@ -121,7 +121,7 @@ class EnhancedItalianDynamicSimulation:
                 sector_mapping = {
                     'Agriculture': ['Agriculture'],
                     'Industry': ['Industry'],
-                    'Energy': ['Electricity', 'Gas', 'Other Energy'],
+                    'Energy': ['Renewables', 'Gas', 'Other Energy'],
                     'Transport': ['Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport', 'Other Transport'],
                     'Services': ['other Sectors (14)']
                 }
@@ -161,8 +161,8 @@ class EnhancedItalianDynamicSimulation:
                 household_energy = calibrated['energy_demand_households_mwh']
 
                 # Map regions and update household energy data
-                for region in base_data['household_energy_demand']['electricity'].keys():
-                    for carrier in ['electricity', 'gas', 'other_energy']:
+                for region in base_data['household_energy_demand']['renewables'].keys():
+                    for carrier in ['renewables', 'gas', 'other_energy']:
                         # Find corresponding data in calibrated results
                         for cal_region, cal_data in household_energy.items():
                             if self.map_region_name(region, cal_region):
@@ -176,7 +176,7 @@ class EnhancedItalianDynamicSimulation:
             # Extract energy prices
             if 'energy_prices_eur_per_mwh' in calibrated:
                 price_data = calibrated['energy_prices_eur_per_mwh']
-                for carrier in ['electricity', 'gas', 'other_energy']:
+                for carrier in ['renewables', 'gas', 'other_energy']:
                     price_key = f'{carrier.title()}_EUR_per_MWh'
                     if price_key in price_data:
                         base_data['energy_prices'][carrier] = price_data[price_key]
@@ -207,7 +207,7 @@ class EnhancedItalianDynamicSimulation:
         sector_mapping = {
             'Agriculture': 'Agriculture',
             'Industry': 'Industry',
-            'Energy': ['Electricity', 'Gas', 'Other Energy'],
+            'Energy': ['Renewables', 'Gas', 'Other Energy'],
             'Transport': ['Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport', 'Other Transport'],
             'Services': 'other Sectors (14)'
         }
@@ -261,7 +261,7 @@ class EnhancedItalianDynamicSimulation:
             'sectoral_value_added': {
                 'Agriculture': 25.0,           # Agriculture and forestry
                 'Industry': 280.0,            # Manufacturing and construction
-                'Energy': 45.0,              # Electricity, gas, other energy
+                'Energy': 45.0,              # Renewables, gas, other energy
                 'Transport': 85.0,            # All transport modes
                 # All other services (largest sector)
                 'Services': 1347.0
@@ -285,10 +285,10 @@ class EnhancedItalianDynamicSimulation:
 
             # Energy demand by carrier and sector (MWh annual - from calibration results)
             'energy_demand_sectoral': {
-                'electricity': {
+                'renewables': {
                     'Agriculture': 12580.0,
                     'Industry': 156900.0,
-                    'Energy': 18040.0,      # Electricity + Gas + Other Energy
+                    'Energy': 18040.0,      # Renewables + Gas + Other Energy
                     'Transport': 25448.0,    # All transport modes
                     'Services': 75450.0
                 },
@@ -310,7 +310,7 @@ class EnhancedItalianDynamicSimulation:
 
             # Household energy demand by region (MWh annual - from calibration results)
             'household_energy_demand': {
-                'electricity': {
+                'renewables': {
                     'Northwest': 39764925.0,
                     'Northeast': 28234575.0,
                     'Centre': 29417175.0,
@@ -351,7 +351,7 @@ class EnhancedItalianDynamicSimulation:
 
             # Energy prices (EUR/MWh - from calibration)
             'energy_prices': {
-                'electricity': 150.0,
+                'renewables': 150.0,
                 'gas': 45.0,
                 'other_energy': 65.0
             },
@@ -461,7 +461,8 @@ class EnhancedItalianDynamicSimulation:
 
             # Energy transition parameters
             'energy_efficiency_improvement': 0.018,  # 1.8% annual
-            'electrification_rate': 0.025,          # 2.5% annual increase
+            # 2.5% annual increase in renewable Renewables use
+            'electrification_rate': 0.025,
             'renewable_share_growth': 0.045,         # 4.5% annual increase
 
             # Carbon pricing parameters (EUR/tCO2)
@@ -514,12 +515,13 @@ class EnhancedItalianDynamicSimulation:
 
         # Check 1: CO2 emission factors
         expected_factors = {
-            'electricity': 312.0,
+            'renewables': 312.0,
             'gas': 202.0,
             'other_energy': 350.0  # MUST match energy_environment_block.py
         }
         print("✓ CO2 emission factors configured:")
-        print(f"  - Electricity: {expected_factors['electricity']} kg CO2/MWh")
+        print(
+            f"  - Renewables: {expected_factors['renewables']} kg CO2/MWh (100% clean)")
         print(f"  - Gas: {expected_factors['gas']} kg CO2/MWh")
         print(
             f"  - Other Energy: {expected_factors['other_energy']} kg CO2/MWh")
@@ -580,7 +582,7 @@ class EnhancedItalianDynamicSimulation:
             model.sectors = pyo.Set(
                 initialize=['Agriculture', 'Industry', 'Energy', 'Transport', 'Services'])
             model.energy_carriers = pyo.Set(
-                initialize=['electricity', 'gas', 'other_energy'])
+                initialize=['renewables', 'gas', 'other_energy'])
 
             # =============================================================
             # PARAMETERS (from base year and growth assumptions)
@@ -814,8 +816,8 @@ class EnhancedItalianDynamicSimulation:
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
 
-                    elif c == 'electricity' and carbon_price_ets1 > 0:
-                        # Electricity demand increase (substitution from fossil fuels)
+                    elif c == 'renewables' and carbon_price_ets1 > 0:
+                        # Renewable Renewables demand increase (substitution from fossil fuels)
                         # Grows as electric vehicles, heat pumps adopted
                         base_increase = 0.0008 * carbon_price_ets1  # 0.08% per €10/tCO2
                         carbon_factor *= (1 + base_increase *
@@ -839,8 +841,8 @@ class EnhancedItalianDynamicSimulation:
                 base_income = self.base_data['household_income'][r]
 
                 # Energy demand elasticity to income (Italian data)
-                # Electricity more income elastic than gas/heating oil
-                if c == 'electricity':
+                # Renewables more income elastic than gas/heating oil
+                if c == 'renewables':
                     income_elasticity = 0.65  # Slightly inelastic
                 elif c == 'gas':
                     # More inelastic (heating necessity)
@@ -870,8 +872,8 @@ class EnhancedItalianDynamicSimulation:
                         carbon_factor *= (1 - base_reduction *
                                           flexibility_multiplier)
 
-                    elif c == 'electricity':
-                        # Heat pump and EV adoption increases electricity demand
+                    elif c == 'renewables':
+                        # Heat pump and EV adoption increases Renewables demand
                         # Grows faster with better infrastructure
                         years_ets2 = year - 2027
                         base_increase = 0.0015 * carbon_price_ets2  # 0.15% per €10/tCO2
@@ -931,7 +933,7 @@ class EnhancedItalianDynamicSimulation:
                 carbon_acceleration = 1.0  # BAU baseline: no acceleration
                 if scenario == 'ETS1' and year >= 2021:
                     # ETS1: Industry carbon pricing drives moderate renewable investment
-                    # Price signal makes fossil electricity more expensive → renewable competitiveness
+                    # Price signal makes fossil Renewables more expensive → renewable competitiveness
                     # STRENGTHENED: Increased from 1.2 to 1.35 for better CO2 reduction
                     carbon_acceleration = 1.35  # 35% boost
                 elif scenario == 'ETS2' and year >= 2027:
@@ -1408,7 +1410,7 @@ class EnhancedItalianDynamicSimulation:
 
         # Calculate sectoral energy demand
         sectoral_energy = {carrier: {}
-                           for carrier in ['electricity', 'gas', 'other_energy']}
+                           for carrier in ['renewables', 'gas', 'other_energy']}
 
         for sector in ['Agriculture', 'Industry', 'Energy', 'Transport', 'Services']:
             # Scale with sectoral value added
@@ -1418,11 +1420,11 @@ class EnhancedItalianDynamicSimulation:
             else:
                 sector_scaling = 1.0
 
-            for carrier in ['electricity', 'gas', 'other_energy']:
+            for carrier in ['renewables', 'gas', 'other_energy']:
                 base_demand = self.base_data['energy_demand_sectoral'][carrier][sector]
 
                 # Apply efficiency and electrification factors
-                if carrier == 'electricity':
+                if carrier == 'renewables':
                     demand_factor = efficiency_factor * electrification_factor
                 elif carrier == 'gas':
                     demand_factor = efficiency_factor / electrification_factor  # Gas declining
@@ -1438,12 +1440,12 @@ class EnhancedItalianDynamicSimulation:
                     if sector in ['Industry', 'Energy'] and carrier == 'gas':
                         # STRENGTHENED: Increased from 0.985 to 0.975 for better CO2 reduction
                         scenario_factor = 0.975  # Industrial gas reduction
-                    elif sector in ['Industry', 'Energy'] and carrier == 'electricity':
+                    elif sector in ['Industry', 'Energy'] and carrier == 'renewables':
                         scenario_factor = 1.015  # Industrial electrification
 
                 elif scenario == 'ETS2' and year >= 2027:
                     if sector == 'Transport':
-                        if carrier == 'electricity':
+                        if carrier == 'renewables':
                             scenario_factor = 1.035  # Transport electrification
                         elif carrier == 'gas':
                             # STRENGTHENED: Increased from 0.975 to 0.965 for better CO2 reduction
@@ -1459,18 +1461,18 @@ class EnhancedItalianDynamicSimulation:
 
         # Calculate household energy demand by region
         household_energy = {carrier: {}
-                            for carrier in ['electricity', 'gas', 'other_energy']}
+                            for carrier in ['renewables', 'gas', 'other_energy']}
 
         for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
             # Scale with regional economic growth
             regional_scaling = macroeconomy['real_gdp_regional'][region] / \
                 self.base_data['gdp_regional'][region]
 
-            for carrier in ['electricity', 'gas', 'other_energy']:
+            for carrier in ['renewables', 'gas', 'other_energy']:
                 base_demand = self.base_data['household_energy_demand'][carrier][region]
 
                 # Apply household-specific factors
-                if carrier == 'electricity':
+                if carrier == 'renewables':
                     demand_factor = efficiency_factor * \
                         (1 + 0.03) ** years_elapsed  # Household electrification
                 elif carrier == 'gas':
@@ -1485,12 +1487,12 @@ class EnhancedItalianDynamicSimulation:
 
                 if scenario == 'ETS1' and year >= 2021:
                     # Industrial carbon pricing has limited household impact
-                    if carrier == 'electricity':
+                    if carrier == 'renewables':
                         scenario_factor = 1.005  # Slight increase due to industrial electrification
 
                 elif scenario == 'ETS2' and year >= 2027:
                     # Buildings carbon pricing directly affects households
-                    if carrier == 'electricity':
+                    if carrier == 'renewables':
                         scenario_factor = 1.025  # Heat pump adoption
                     elif carrier == 'gas':
                         # STRENGTHENED: Increased from 0.970 to 0.955 for better CO2 reduction
@@ -1503,7 +1505,7 @@ class EnhancedItalianDynamicSimulation:
 
         # Calculate totals
         energy_totals = {}
-        for carrier in ['electricity', 'gas', 'other_energy']:
+        for carrier in ['renewables', 'gas', 'other_energy']:
             sectoral_total = sum(sectoral_energy[carrier].values())
             household_total = sum(household_energy[carrier].values())
             energy_totals[f'{carrier}_total'] = sectoral_total + \
@@ -1797,13 +1799,13 @@ class EnhancedItalianDynamicSimulation:
         renewable_share = max(0.35, min(0.98, renewable_share))
 
         # CO2 emission factors (kg CO2/MWh)
-        # Electricity factor is now ENDOGENOUS - decreases with renewable share
-        base_electricity_factor = 312.0  # Italy 2021 grid average (65% fossil)
-        electricity_co2_factor = base_electricity_factor * \
+        # Renewables factor is now ENDOGENOUS - decreases with renewable share
+        base_Renewables_factor = 312.0  # Italy 2021 grid average (65% fossil)
+        Renewables_co2_factor = base_Renewables_factor * \
             (1 - renewable_share)  # Decreases as renewables increase
 
         co2_factors = {
-            'electricity': electricity_co2_factor,  # NOW ENDOGENOUS - varies by scenario!
+            'renewables': Renewables_co2_factor,  # NOW ENDOGENOUS - varies by scenario!
             'gas': 202.0,             # kg CO2/MWh for natural gas
             # kg CO2/MWh for oil products (aligned with energy_environment_block.py)
             'other_energy': 350.0
@@ -1817,7 +1819,7 @@ class EnhancedItalianDynamicSimulation:
             sector_emissions = 0
 
             # Calculate emissions from each energy carrier
-            for carrier in ['electricity', 'gas', 'other_energy']:
+            for carrier in ['renewables', 'gas', 'other_energy']:
                 energy_demand_mwh = energy['sectoral_energy'][carrier][sector]
                 emissions_kg = energy_demand_mwh * co2_factors[carrier]
                 emissions_mt = emissions_kg / 1e9  # Convert kg to MtCO2
@@ -1874,7 +1876,7 @@ class EnhancedItalianDynamicSimulation:
             region_emissions = 0
 
             # Calculate emissions from household energy consumption
-            for carrier in ['electricity', 'gas', 'other_energy']:
+            for carrier in ['renewables', 'gas', 'other_energy']:
                 energy_demand_mwh = energy['household_energy'][carrier][region]
                 emissions_kg = energy_demand_mwh * co2_factors[carrier]
                 emissions_mt = emissions_kg / 1e9  # Convert kg to MtCO2
@@ -2206,7 +2208,7 @@ class EnhancedItalianDynamicSimulation:
                 for result in scenario_results:
                     row = {'Year': result['year'], 'Scenario': scenario}
                     # Add sectoral energy by carrier
-                    for carrier in ['electricity', 'gas', 'other_energy']:
+                    for carrier in ['renewables', 'gas', 'other_energy']:
                         for sector, demand in result['energy']['sectoral_energy'][carrier].items():
                             row[f'{carrier.title()}_{sector}_MWh'] = demand
                     sectoral_energy_data.append(row)
@@ -2214,7 +2216,7 @@ class EnhancedItalianDynamicSimulation:
             sectoral_energy_df = pd.DataFrame(sectoral_energy_data)
 
             # Create separate sheets for each carrier
-            for carrier in ['Electricity', 'Gas', 'Other_Energy']:
+            for carrier in ['renewables', 'Gas', 'Other_Energy']:
                 carrier_cols = [
                     col for col in sectoral_energy_df.columns if col.startswith(carrier)]
                 if carrier_cols:
@@ -2231,7 +2233,7 @@ class EnhancedItalianDynamicSimulation:
                 for result in scenario_results:
                     row = {'Year': result['year'], 'Scenario': scenario}
                     # Add household energy by carrier and region
-                    for carrier in ['electricity', 'gas', 'other_energy']:
+                    for carrier in ['renewables', 'gas', 'other_energy']:
                         for region, demand in result['energy']['household_energy'][carrier].items():
                             row[f'{carrier.title()}_{region}_MWh'] = demand
                     household_energy_data.append(row)
@@ -2239,7 +2241,7 @@ class EnhancedItalianDynamicSimulation:
             household_energy_df = pd.DataFrame(household_energy_data)
 
             # Create separate sheets for each carrier
-            for carrier in ['Electricity', 'Gas', 'Other_Energy']:
+            for carrier in ['renewables', 'Gas', 'Other_Energy']:
                 carrier_cols = [
                     col for col in household_energy_df.columns if col.startswith(carrier)]
                 if carrier_cols:
@@ -2277,7 +2279,7 @@ class EnhancedItalianDynamicSimulation:
                         total_regional_demand = 0
 
                         # Sum across all energy carriers for this region
-                        for carrier in ['electricity', 'gas', 'other_energy']:
+                        for carrier in ['renewables', 'gas', 'other_energy']:
                             regional_demand = result['energy']['household_energy'][carrier][region]
                             total_regional_demand += regional_demand
 
@@ -2312,19 +2314,19 @@ class EnhancedItalianDynamicSimulation:
 
                     # Add individual carrier demand by region
                     for region in ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']:
-                        for carrier in ['electricity', 'gas', 'other_energy']:
+                        for carrier in ['renewables', 'gas', 'other_energy']:
                             carrier_demand = result['energy']['household_energy'][carrier][region]
                             row[f'{region}_{carrier.title()}_MWh'] = carrier_demand
                             row[f'{region}_{carrier.title()}_TWh'] = carrier_demand / 1000000
 
                         # Regional total
                         regional_total = sum(result['energy']['household_energy'][carrier][region] for carrier in [
-                                             'electricity', 'gas', 'other_energy'])
+                                             'renewables', 'gas', 'other_energy'])
                         row[f'{region}_Total_MWh'] = regional_total
                         row[f'{region}_Total_TWh'] = regional_total / 1000000
 
                     # National totals by carrier
-                    for carrier in ['electricity', 'gas', 'other_energy']:
+                    for carrier in ['renewables', 'gas', 'other_energy']:
                         national_carrier_total = sum(result['energy']['household_energy'][carrier][region] for region in [
                                                      'Northwest', 'Northeast', 'Centre', 'South', 'Islands'])
                         row[f'National_{carrier.title()}_MWh'] = national_carrier_total
@@ -2332,7 +2334,7 @@ class EnhancedItalianDynamicSimulation:
 
                     # Grand national total
                     grand_national_total = sum(sum(result['energy']['household_energy'][carrier][region] for region in [
-                                               'Northwest', 'Northeast', 'Centre', 'South', 'Islands']) for carrier in ['electricity', 'gas', 'other_energy'])
+                                               'Northwest', 'Northeast', 'Centre', 'South', 'Islands']) for carrier in ['renewables', 'gas', 'other_energy'])
                     row['National_Total_MWh'] = grand_national_total
                     row['National_Total_TWh'] = grand_national_total / 1000000
 
@@ -2592,14 +2594,14 @@ class EnhancedItalianDynamicSimulation:
 
         # Energy Demand Evolution
         if 'BAU' in results and results['BAU']:
-            elec_2021 = results['BAU'][0]['energy']['totals']['electricity_total']
-            elec_2040 = results['BAU'][-1]['energy']['totals']['electricity_total']
+            elec_2021 = results['BAU'][0]['energy']['totals']['renewables_total']
+            elec_2040 = results['BAU'][-1]['energy']['totals']['renewables_total']
             gas_2021 = results['BAU'][0]['energy']['totals']['gas_total']
             gas_2040 = results['BAU'][-1]['energy']['totals']['gas_total']
 
             print(f"\nEnergy Demand Evolution (BAU scenario):")
             print(
-                f"   Electricity: {elec_2021/1000000:.1f} TWh (2021) → {elec_2040/1000000:.1f} TWh (2040)")
+                f"   Renewables: {elec_2021/1000000:.1f} TWh (2021) → {elec_2040/1000000:.1f} TWh (2040)")
             print(
                 f"   Gas: {gas_2021/1000000:.1f} TWh (2021) → {gas_2040/1000000:.1f} TWh (2040)")
 

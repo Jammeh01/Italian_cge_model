@@ -241,7 +241,7 @@ class ComprehensiveResultsGenerator:
         sector_mapping = {
             'Agriculture': 'AGR',
             'Industry': 'IND',
-            'Electricity': 'ELEC',
+            'Renewables': 'RENEW',
             'Gas': 'GAS',
             'Other Energy': 'OENERGY',
             'Road Transport': 'ROAD',
@@ -253,32 +253,32 @@ class ComprehensiveResultsGenerator:
         }
 
         energy_mapping = {
-            'Electricity': 'ELEC',
+            'Renewables': 'RENEW',
             'Gas': 'GAS',
             'Other Energy': 'OENERGY'
         }
 
         # Energy intensity factors based on Italian economic data (MWh per million EUR output)
-        # NOTE: Electricity represents RENEWABLE energy consumption
+        # NOTE: Renewables represents 100% RENEWABLE electricity consumption (zero emissions)
         energy_intensities = {
-            'Agriculture': {'Electricity': 65, 'Gas': 45, 'Other Energy': 90},
-            'Industry': {'Electricity': 190, 'Gas': 140, 'Other Energy': 110},
-            # Power sector: auxiliary power, gas backup, grid losses
-            'Electricity': {'Electricity': 120, 'Gas': 85, 'Other Energy': 45},
+            'Agriculture': {'Renewables': 65, 'Gas': 45, 'Other Energy': 90},
+            'Industry': {'Renewables': 190, 'Gas': 140, 'Other Energy': 110},
+            # Renewable power sector: auxiliary power, grid management, storage
+            'Renewables': {'Renewables': 120, 'Gas': 85, 'Other Energy': 45},
             # Gas sector: processing, compression, distribution operations
-            'Gas': {'Electricity': 40, 'Gas': 120, 'Other Energy': 80},
-            # Fossil energy sector (includes former gas power plants)
-            'Other Energy': {'Electricity': 50, 'Gas': 90, 'Other Energy': 550},
+            'Gas': {'Renewables': 40, 'Gas': 120, 'Other Energy': 80},
+            # Fossil energy sector
+            'Other Energy': {'Renewables': 50, 'Gas': 90, 'Other Energy': 550},
             # Increased electric vehicle adoption
-            'Road Transport': {'Electricity': 12, 'Gas': 3, 'Other Energy': 275},
+            'Road Transport': {'Renewables': 12, 'Gas': 3, 'Other Energy': 275},
             # Increased electrification with renewables
-            'Rail Transport': {'Electricity': 220, 'Gas': 10, 'Other Energy': 15},
-            'Air Transport': {'Electricity': 25, 'Gas': 5, 'Other Energy': 320},
-            'Water Transport': {'Electricity': 35, 'Gas': 15, 'Other Energy': 210},
+            'Rail Transport': {'Renewables': 220, 'Gas': 10, 'Other Energy': 15},
+            'Air Transport': {'Renewables': 25, 'Gas': 5, 'Other Energy': 320},
+            'Water Transport': {'Renewables': 35, 'Gas': 15, 'Other Energy': 210},
             # Some electrification
-            'Other Transport': {'Electricity': 25, 'Gas': 8, 'Other Energy': 145},
+            'Other Transport': {'Renewables': 25, 'Gas': 8, 'Other Energy': 145},
             # Services increased renewable electricity use
-            'other Sectors (14)': {'Electricity': 105, 'Gas': 55, 'Other Energy': 15}
+            'other Sectors (14)': {'Renewables': 105, 'Gas': 55, 'Other Energy': 15}
         }
 
         try:
@@ -290,7 +290,7 @@ class ComprehensiveResultsGenerator:
 
                 print(f"    Extracting energy for sector: {sector}")
 
-                for energy_type in ['Electricity', 'Gas', 'Other Energy']:
+                for energy_type in ['Renewables', 'Gas', 'Other Energy']:
                     energy_code = energy_mapping.get(energy_type)
                     energy_demand = 0
                     found_calibrated_value = False
@@ -323,7 +323,7 @@ class ComprehensiveResultsGenerator:
 
                                     # Distribute based on typical energy mix
                                     energy_shares = {
-                                        'Electricity': 0.35,   # 35% electricity
+                                        'Renewables': 0.35,   # 35% electricity
                                         'Gas': 0.40,          # 40% gas
                                         'Other Energy': 0.25  # 25% other energy
                                     }
@@ -354,7 +354,7 @@ class ComprehensiveResultsGenerator:
                         else:
                             # Use realistic baseline if no output data available
                             baseline_outputs = {
-                                'Agriculture': 32450, 'Industry': 425680, 'Electricity': 48520,
+                                'Agriculture': 32450, 'Industry': 425680, 'Renewables': 48520,
                                 'Gas': 23100, 'Other Energy': 167890, 'Road Transport': 87650,
                                 'Rail Transport': 8420, 'Air Transport': 12340, 'Water Transport': 9870,
                                 'Other Transport': 15680, 'other Sectors (14)': 950450
@@ -380,17 +380,17 @@ class ComprehensiveResultsGenerator:
             print(f"  Error in sectoral energy extraction: {e}")
             # Provide fallback data based on Italian statistics
             fallback_data = {
-                'Agriculture': {'Electricity_MWh': 2108925, 'Gas_MWh': 1460250, 'Other_Energy_MWh': 2920500, 'Total_Energy_MWh': 6489675},
-                'Industry': {'Electricity_MWh': 80881200, 'Gas_MWh': 59595200, 'Other_Energy_MWh': 46824800, 'Total_Energy_MWh': 187301200},
-                'Electricity': {'Electricity_MWh': 0, 'Gas_MWh': 16982000, 'Other_Energy_MWh': 9704000, 'Total_Energy_MWh': 26686000},
-                'Gas': {'Electricity_MWh': 924000, 'Gas_MWh': 0, 'Other_Energy_MWh': 1848000, 'Total_Energy_MWh': 2772000},
-                'Other Energy': {'Electricity_MWh': 8394500, 'Gas_MWh': 15110100, 'Other_Energy_MWh': 0, 'Total_Energy_MWh': 23504600},
-                'Road Transport': {'Electricity_MWh': 701200, 'Gas_MWh': 262950, 'Other_Energy_MWh': 24542000, 'Total_Energy_MWh': 25506150},
-                'Rail Transport': {'Electricity_MWh': 1515600, 'Gas_MWh': 168400, 'Other_Energy_MWh': 378900, 'Total_Energy_MWh': 2062900},
-                'Air Transport': {'Electricity_MWh': 308500, 'Gas_MWh': 61700, 'Other_Energy_MWh': 3948800, 'Total_Energy_MWh': 4319000},
-                'Water Transport': {'Electricity_MWh': 345450, 'Gas_MWh': 148050, 'Other_Energy_MWh': 2072700, 'Total_Energy_MWh': 2566200},
-                'Other Transport': {'Electricity_MWh': 313600, 'Gas_MWh': 125440, 'Other_Energy_MWh': 2352000, 'Total_Energy_MWh': 2791040},
-                'other Sectors (14)': {'Electricity_MWh': 80788250, 'Gas_MWh': 52274750, 'Other_Energy_MWh': 33266250, 'Total_Energy_MWh': 166329250}
+                'Agriculture': {'Renewables_MWh': 2108925, 'Gas_MWh': 1460250, 'Other_Energy_MWh': 2920500, 'Total_Energy_MWh': 6489675},
+                'Industry': {'Renewables_MWh': 80881200, 'Gas_MWh': 59595200, 'Other_Energy_MWh': 46824800, 'Total_Energy_MWh': 187301200},
+                'Renewables': {'Renewables_MWh': 0, 'Gas_MWh': 16982000, 'Other_Energy_MWh': 9704000, 'Total_Energy_MWh': 26686000},
+                'Gas': {'Renewables_MWh': 924000, 'Gas_MWh': 0, 'Other_Energy_MWh': 1848000, 'Total_Energy_MWh': 2772000},
+                'Other Energy': {'Renewables_MWh': 8394500, 'Gas_MWh': 15110100, 'Other_Energy_MWh': 0, 'Total_Energy_MWh': 23504600},
+                'Road Transport': {'Renewables_MWh': 701200, 'Gas_MWh': 262950, 'Other_Energy_MWh': 24542000, 'Total_Energy_MWh': 25506150},
+                'Rail Transport': {'Renewables_MWh': 1515600, 'Gas_MWh': 168400, 'Other_Energy_MWh': 378900, 'Total_Energy_MWh': 2062900},
+                'Air Transport': {'Renewables_MWh': 308500, 'Gas_MWh': 61700, 'Other_Energy_MWh': 3948800, 'Total_Energy_MWh': 4319000},
+                'Water Transport': {'Renewables_MWh': 345450, 'Gas_MWh': 148050, 'Other_Energy_MWh': 2072700, 'Total_Energy_MWh': 2566200},
+                'Other Transport': {'Renewables_MWh': 313600, 'Gas_MWh': 125440, 'Other_Energy_MWh': 2352000, 'Total_Energy_MWh': 2791040},
+                'other Sectors (14)': {'Renewables_MWh': 80788250, 'Gas_MWh': 52274750, 'Other_Energy_MWh': 33266250, 'Total_Energy_MWh': 166329250}
             }
 
             for sector in sectors:
@@ -399,7 +399,7 @@ class ComprehensiveResultsGenerator:
                 else:
                     # Default minimal values
                     sectoral_energy[sector] = {
-                        'Electricity_MWh': 1000000,
+                        'Renewables_MWh': 1000000,
                         'Gas_MWh': 750000,
                         'Other_Energy_MWh': 500000,
                         'Total_Energy_MWh': 2250000
@@ -445,7 +445,7 @@ class ComprehensiveResultsGenerator:
                 regional_energy[region] = {}
 
                 # Extract energy demand by type for each region
-                for energy_type in ['Electricity', 'Gas', 'Other Energy']:
+                for energy_type in ['Renewables', 'Gas', 'Other Energy']:
                     energy_demand = 0
 
                     # Try multiple variable names for household energy consumption
@@ -481,7 +481,7 @@ class ComprehensiveResultsGenerator:
                             # Based on Italian household energy statistics: 40% electricity, 45% gas, 15% other
                             base_energy_per_capita = {
                                 # kWh per capita per year (40% of 5162 total)
-                                'Electricity': 2065,
+                                'Renewables': 2065,
                                 # kWh equivalent per capita per year (45% of 5162 total)
                                 'Gas': 2323,
                                 # kWh equivalent per capita per year (15% of 5162 total)
@@ -517,7 +517,7 @@ class ComprehensiveResultsGenerator:
                 total_household_energy = 306000000  # MWh
                 regional_energy[region] = {
                     # 40% electricity
-                    'Electricity_MWh': round(pop_share * total_household_energy * 0.40, 2),
+                    'Renewables_MWh': round(pop_share * total_household_energy * 0.40, 2),
                     # 45% gas
                     'Gas_MWh': round(pop_share * total_household_energy * 0.45, 2),
                     # 15% other energy
@@ -537,13 +537,13 @@ class ComprehensiveResultsGenerator:
         try:
             # Italian 2021 base price references for scaling (EUR/MWh)
             base_price_references = {
-                'Electricity': 165.0,  # EUR/MWh renewable electricity reference
+                'Renewables': 165.0,  # EUR/MWh renewable electricity reference
                 'Gas': 52.0,           # EUR/MWh natural gas reference
                 'Other Energy': 75.0   # EUR/MWh fossil fuels reference
             }
 
             # Extract actual equilibrium prices from the model
-            for energy_type in ['Electricity', 'Gas', 'Other Energy']:
+            for energy_type in ['Renewables', 'Gas', 'Other Energy']:
                 equilibrium_price = 1.0  # Default normalized price
                 found_price = False
 
@@ -604,7 +604,7 @@ class ComprehensiveResultsGenerator:
             print(f"  Warning: Error extracting energy prices - {str(e)}")
             # Provide base reference prices if extraction fails
             energy_prices = {
-                'Electricity_EUR_per_MWh': 165.0,
+                'Renewables_EUR_per_MWh': 165.0,
                 'Gas_EUR_per_MWh': 52.0,
                 'Other_Energy_EUR_per_MWh': 75.0
             }
@@ -667,7 +667,7 @@ class ComprehensiveResultsGenerator:
             italy_outputs_2021 = {
                 'Agriculture': 32450,
                 'Industry': 425680,
-                'Electricity': 48520,
+                'Renewables': 48520,
                 'Gas': 23100,
                 'Other Energy': 167890,
                 'Road Transport': 87650,
@@ -700,7 +700,7 @@ class ComprehensiveResultsGenerator:
         sector_mapping = {
             'Agriculture': 'AGR',
             'Industry': 'IND',
-            'Electricity': 'ELEC',
+            'Renewables': 'RENEW',
             'Gas': 'GAS',
             'Other Energy': 'OENERGY',
             'Road Transport': 'ROAD',
@@ -763,7 +763,7 @@ class ComprehensiveResultsGenerator:
         italy_sector_outputs_2021 = {
             'Agriculture': 32450,      # Million EUR
             'Industry': 425680,       # Million EUR
-            'Electricity': 48520,     # Million EUR
+            'Renewables': 48520,     # Million EUR
             'Gas': 23100,            # Million EUR
             'Other Energy': 167890,   # Million EUR
             'Road Transport': 87650,  # Million EUR
@@ -820,7 +820,7 @@ class ComprehensiveResultsGenerator:
             sector_mapping = {
                 'Agriculture': 'AGR',
                 'Industry': 'IND',
-                'Electricity': 'ELEC',
+                'Renewables': 'RENEW',
                 'Gas': 'GAS',
                 'Other Energy': 'OENERGY',
                 'Road Transport': 'ROAD',
@@ -855,7 +855,7 @@ class ComprehensiveResultsGenerator:
                         va_shares = {
                             'Agriculture': 0.28,
                             'Industry': 0.32,
-                            'Electricity': 0.45,
+                            'Renewables': 0.45,
                             'Gas': 0.50,
                             'Other Energy': 0.35,
                             'Road Transport': 0.48,
@@ -922,7 +922,7 @@ class ComprehensiveResultsGenerator:
                 'Value_Added_by_Sector': {
                     'Agriculture': 32450,
                     'Industry': 425680,
-                    'Electricity': 48520,
+                    'Renewables': 48520,
                     'Gas': 23100,
                     'Other Energy': 167890,
                     'Road Transport': 87650,
@@ -955,7 +955,7 @@ class ComprehensiveResultsGenerator:
         # NOTE: Electricity sector represents RENEWABLE electricity generation (solar, wind, hydro, etc.)
         co2_fuel_combustion_italy_2021 = {
             # MtCO2 - RENEWABLE electricity (no fuel combustion)
-            'Electricity': 0.0,
+            'Renewables': 0.0,
             'Industry': 45.2,          # MtCO2 - Industrial fuel combustion
             'Road Transport': 89.1,    # MtCO2 - Road transport fuel combustion
             'Rail Transport': 1.8,     # MtCO2 - Rail transport fuel combustion
@@ -979,7 +979,7 @@ class ComprehensiveResultsGenerator:
             # NOTE: Electricity represents RENEWABLE energy (solar, wind, hydro, geothermal, biomass)
             fuel_combustion_emission_factors = {
                 # kg CO2/MWh (RENEWABLE electricity - no fuel combustion)
-                'Electricity': 0.0,
+                'Renewables': 0.0,
                 # kg CO2/MWh (natural gas combustion, includes gas power plants)
                 'Gas': 202.0,
                 # kg CO2/MWh (coal/oil power plants, oil refining, increased from electricity redistribution)
@@ -1034,7 +1034,7 @@ class ComprehensiveResultsGenerator:
 
                     # Try to extract energy consumption from the model
                     if hasattr(model, 'Energy_demand'):
-                        energy_types = ['Electricity', 'Gas', 'Other Energy']
+                        energy_types = ['Renewables', 'Gas', 'Other Energy']
                         for energy_type in energy_types:
                             try:
                                 if hasattr(model.Energy_demand, '_index'):
@@ -1065,7 +1065,7 @@ class ComprehensiveResultsGenerator:
                             # Estimate energy consumption based on economic output
                             energy_intensity = {
                                 # MWh per million EUR (auxiliary power, gas backup, transmission losses)
-                                'Electricity': 250,
+                                'Renewables': 250,
                                 # MWh per million EUR (industrial fuel)
                                 'Industry': 800,
                                 # MWh per million EUR (transport fuel)
@@ -1170,7 +1170,7 @@ class ComprehensiveResultsGenerator:
             print("  NOTE: Electricity = Renewable energy (zero fuel combustion)")
             for sector, emissions in sorted(co2_by_sector.items(), key=lambda x: x[1], reverse=True):
                 share = (emissions / total_co2) * 100 if total_co2 > 0 else 0
-                energy_type = "(Renewable)" if sector == "Electricity" else "(Fossil Fuel)" if sector in [
+                energy_type = "(Renewable)" if sector == "Renewables" else "(Fossil Fuel)" if sector in [
                     "Gas", "Other Energy"] else "(Transport/Other)"
                 print(
                     f"    {sector:20}: {emissions:6.1f} MtCO2 ({share:4.1f}%) {energy_type}")
@@ -1325,23 +1325,23 @@ class ComprehensiveResultsGenerator:
 
                 # Regional energy demand (if available)
                 total_energy_demand = 0
-                electricity_demand = 0
+                Renewables_demand = 0
                 gas_demand = 0
 
-                for energy_type in ['Electricity', 'Gas', 'Other Energy']:
+                for energy_type in ['Renewables', 'Gas', 'Other Energy']:
                     if energy_type in self.model.calibrated_data['energy_sectors']:
                         if hasattr(model, 'Energy_demand') and (energy_type, region) in model.Energy_demand:
                             demand = model.Energy_demand[energy_type,
                                                          region].value
                             if demand is not None:
                                 total_energy_demand += demand
-                                if energy_type == 'Electricity':
-                                    electricity_demand = demand
+                                if energy_type == 'Renewables':
+                                    Renewables_demand = demand
                                 elif energy_type == 'Gas':
                                     gas_demand = demand
 
                 regional[region]['Total_Energy_Demand_Units'] = total_energy_demand
-                regional[region]['Electricity_Demand_Units'] = electricity_demand
+                regional[region]['Renewables_Demand_Units'] = Renewables_demand
                 regional[region]['Gas_Demand_Units'] = gas_demand
 
         except Exception as e:
@@ -1396,7 +1396,7 @@ class ComprehensiveResultsGenerator:
 
         try:
             # Total energy demand by carrier
-            energy_carriers = ['Electricity', 'Gas', 'Other Energy']
+            energy_carriers = ['Renewables', 'Gas', 'Other Energy']
 
             for carrier in energy_carriers:
                 if carrier in self.model.calibrated_data.get('energy_sectors', []):
@@ -1487,7 +1487,7 @@ class ComprehensiveResultsGenerator:
 
             # Energy prices
             energy_prices = {}
-            for energy_type in ['Electricity', 'Gas', 'Other Energy']:
+            for energy_type in ['Renewables', 'Gas', 'Other Energy']:
                 if energy_type in self.model.calibrated_data.get('energy_sectors', []):
                     if hasattr(model, 'P') and (energy_type,) in model.P:
                         energy_prices[energy_type] = model.P[energy_type].value if model.P[energy_type].value is not None else 1.0
@@ -1561,20 +1561,20 @@ class ComprehensiveResultsGenerator:
                         writer, sheet_name='Energy_Summary', index=False)
 
                 # Energy demand by region
-                electricity_regional = scenario_results['energy'].get(
-                    'Electricity_Regional_Demand', {})
+                Renewables_regional = scenario_results['energy'].get(
+                    'Renewables_Regional_Demand', {})
                 gas_regional = scenario_results['energy'].get(
                     'Gas_Regional_Demand', {})
 
-                if electricity_regional or gas_regional:
+                if Renewables_regional or gas_regional:
                     regions = list(
-                        set(list(electricity_regional.keys()) + list(gas_regional.keys())))
+                        set(list(Renewables_regional.keys()) + list(gas_regional.keys())))
                     energy_regional_data = []
 
                     for region in regions:
                         energy_regional_data.append({
                             'Region': region,
-                            'Electricity_Demand': electricity_regional.get(region, 0),
+                            'Renewables_Demand': Renewables_regional.get(region, 0),
                             'Gas_Demand': gas_regional.get(region, 0)
                         })
 
@@ -1582,20 +1582,20 @@ class ComprehensiveResultsGenerator:
                         writer, sheet_name='Energy_by_Region', index=False)
 
                 # Energy demand by sector
-                electricity_sectoral = scenario_results['energy'].get(
-                    'Electricity_Sectoral_Demand', {})
+                Renewables_sectoral = scenario_results['energy'].get(
+                    'Renewables_Sectoral_Demand', {})
                 gas_sectoral = scenario_results['energy'].get(
                     'Gas_Sectoral_Demand', {})
 
-                if electricity_sectoral or gas_sectoral:
+                if Renewables_sectoral or gas_sectoral:
                     sectors = list(
-                        set(list(electricity_sectoral.keys()) + list(gas_sectoral.keys())))
+                        set(list(Renewables_sectoral.keys()) + list(gas_sectoral.keys())))
                     energy_sectoral_data = []
 
                     for sector in sectors:
                         energy_sectoral_data.append({
                             'Sector': sector,
-                            'Electricity_Demand': electricity_sectoral.get(sector, 0),
+                            'Renewables_Demand': Renewables_sectoral.get(sector, 0),
                             'Gas_Demand': gas_sectoral.get(sector, 0)
                         })
 
@@ -1808,50 +1808,50 @@ class ComprehensiveResultsGenerator:
 
             for region, energy_data in results['energy_demand_households_mwh'].items():
                 # Calculate total energy demand for each region across all carriers
-                electricity_demand = energy_data.get('Electricity_MWh', 0)
+                Renewables_demand = energy_data.get('Renewables_MWh', 0)
                 gas_demand = energy_data.get('Gas_MWh', 0)
                 other_energy_demand = energy_data.get('Other_Energy_MWh', 0)
-                total_demand = electricity_demand + gas_demand + other_energy_demand
+                total_demand = Renewables_demand + gas_demand + other_energy_demand
 
                 total_demand_by_region_data.append({
                     'Region_Code': region,
                     'Region_Name': region_mapping.get(region, region),
                     'Population_Share': round(model_definitions.regional_population_shares.get(region, 0), 3),
-                    'Electricity_MWh': electricity_demand,
-                    'Electricity_TWh': round(electricity_demand / 1000000, 3),
+                    'Renewables_MWh': Renewables_demand,
+                    'Renewables_TWh': round(Renewables_demand / 1000000, 3),
                     'Gas_MWh': gas_demand,
                     'Gas_TWh': round(gas_demand / 1000000, 3),
                     'Other_Energy_MWh': other_energy_demand,
                     'Other_Energy_TWh': round(other_energy_demand / 1000000, 3),
                     'Total_Energy_MWh': total_demand,
                     'Total_Energy_TWh': round(total_demand / 1000000, 3),
-                    'Electricity_Share_Percent': round((electricity_demand / total_demand * 100) if total_demand > 0 else 0, 1),
+                    'Renewables_Share_Percent': round((Renewables_demand / total_demand * 100) if total_demand > 0 else 0, 1),
                     'Gas_Share_Percent': round((gas_demand / total_demand * 100) if total_demand > 0 else 0, 1),
                     'Other_Energy_Share_Percent': round((other_energy_demand / total_demand * 100) if total_demand > 0 else 0, 1)
                 })
 
             # Calculate national totals
-            national_electricity = sum(
-                [row['Electricity_MWh'] for row in total_demand_by_region_data])
+            national_renewables = sum(
+                [row['Renewables_MWh'] for row in total_demand_by_region_data])
             national_gas = sum([row['Gas_MWh']
                                for row in total_demand_by_region_data])
             national_other_energy = sum(
                 [row['Other_Energy_MWh'] for row in total_demand_by_region_data])
-            national_total = national_electricity + national_gas + national_other_energy
+            national_total = national_renewables + national_gas + national_other_energy
 
             total_demand_by_region_data.append({
                 'Region_Code': 'ITALY',
                 'Region_Name': 'ITALY (National Total)',
                 'Population_Share': 1.000,
-                'Electricity_MWh': national_electricity,
-                'Electricity_TWh': round(national_electricity / 1000000, 3),
+                'Renewables_MWh': national_renewables,
+                'Renewables_TWh': round(national_renewables / 1000000, 3),
                 'Gas_MWh': national_gas,
                 'Gas_TWh': round(national_gas / 1000000, 3),
                 'Other_Energy_MWh': national_other_energy,
                 'Other_Energy_TWh': round(national_other_energy / 1000000, 3),
                 'Total_Energy_MWh': national_total,
                 'Total_Energy_TWh': round(national_total / 1000000, 3),
-                'Electricity_Share_Percent': round((national_electricity / national_total * 100) if national_total > 0 else 0, 1),
+                'Renewables_Share_Percent': round((national_renewables / national_total * 100) if national_total > 0 else 0, 1),
                 'Gas_Share_Percent': round((national_gas / national_total * 100) if national_total > 0 else 0, 1),
                 'Other_Energy_Share_Percent': round((national_other_energy / national_total * 100) if national_total > 0 else 0, 1)
             })
@@ -1879,7 +1879,7 @@ class ComprehensiveResultsGenerator:
             for output_type, output_value in results['sectoral_outputs_eur_millions'].items():
                 if 'Total' not in output_type:
                     sector = output_type.replace('_Output_EUR_Millions', '')
-                    sector_classification = 'Energy' if sector in ['Electricity', 'Gas', 'Other Energy'] else \
+                    sector_classification = 'Energy' if sector in ['Renewables', 'Gas', 'Other Energy'] else \
                         'Transport' if 'Transport' in sector else \
                         'Other'
 
@@ -1942,7 +1942,7 @@ class ComprehensiveResultsGenerator:
             if 'CO2_Emissions_by_Sector_MtCO2' in co2_data:
                 co2_sectoral_data = []
                 for sector, co2_emissions in co2_data['CO2_Emissions_by_Sector_MtCO2'].items():
-                    sector_classification = 'Energy' if sector in ['Electricity', 'Gas', 'Other Energy'] else \
+                    sector_classification = 'Energy' if sector in ['Renewables', 'Gas', 'Other Energy'] else \
                         'Transport' if 'Transport' in sector else \
                         'Other'
                     co2_sectoral_data.append({

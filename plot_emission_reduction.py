@@ -20,18 +20,18 @@ plt.rcParams['legend.fontsize'] = 11
 # Load data
 print("Loading CO2 emissions data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 co2_df = pd.read_excel(xl, 'CO2_Emissions_Totals')
 
-# Extract years and filter for 2020-2040
+# Extract years and filter for 2021-2040
 years = pd.to_numeric(co2_df.iloc[2:, 0], errors='coerce').values
-mask = (years >= 2020) & (years <= 2040)
+mask = (years >= 2021) & (years <= 2040)
 years = years[mask]
 
-# Extract Total CO2 Emissions data in MtCO2 (BAU=10, ETS1=11, ETS2=12)
-co2_bau = pd.to_numeric(co2_df.iloc[2:, 10], errors='coerce').values[mask]
-co2_ets1 = pd.to_numeric(co2_df.iloc[2:, 11], errors='coerce').values[mask]
-co2_ets2 = pd.to_numeric(co2_df.iloc[2:, 12], errors='coerce').values[mask]
+# Extract Total CO2 Emissions data in MtCO2 (BAU=1, ETS1=2, ETS2=3)
+co2_bau = pd.to_numeric(co2_df.iloc[2:, 1], errors='coerce').values[mask]
+co2_ets1 = pd.to_numeric(co2_df.iloc[2:, 2], errors='coerce').values[mask]
+co2_ets2 = pd.to_numeric(co2_df.iloc[2:, 3], errors='coerce').values[mask]
 
 # Get 2021 baseline value for BAU
 idx_2021 = np.where(years == 2021)[0][0]
@@ -84,9 +84,9 @@ ax.legend(loc='upper left', fontsize=11, frameon=True, shadow=True)
 ax.grid(True, alpha=0.3, linestyle='--')
 
 # Set axis limits
-ax.set_xlim(2020, 2040)
+ax.set_xlim(2021, 2040)
 ax.set_ylim(0, 110)
-ax.set_xticks([2020, 2025, 2030, 2035, 2040])
+ax.set_xticks([2021, 2025, 2030, 2035, 2040])
 
 # Add summary statistics box
 summary_text = (

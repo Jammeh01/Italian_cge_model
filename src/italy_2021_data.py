@@ -1,5 +1,5 @@
 """
-2021 Italian Economic Data for CGE Model Calibration
+2021 Italian Economic Data for CGE-I5 Model Calibration
 Based on actual statistical data from ISTAT, Eurostat, IEA, and other official sources
 All monetary values in millions of euros (current prices)
 """
@@ -59,15 +59,17 @@ SERVICES_EMPLOYMENT = 16380000
 
 # Electricity Sector (Terna, GSE, IEA Energy Statistics 2021)
 # NOTE: Model uses TOTAL grid electricity (renewable + fossil mix)
-ELECTRICITY_GENERATION = 289.7  # TWh total electricity generation
+RENEWABLES_GENERATION = 289.7  # TWh total renewable generation capacity
 # TWh total electricity consumption (including imports)
-ELECTRICITY_CONSUMPTION = 310.0
+RENEWABLES_CONSUMPTION = 310.0  # TWh renewable energy consumption
 # 35.0% renewable electricity (actual 2021 data)
-ELECTRICITY_RENEWABLE_SHARE = 0.35
-ELECTRICITY_CO2_INTENSITY = 0.312    # 0.312 tCO2/MWh (grid average emissions)
+RENEWABLES_SHARE_OF_TOTAL = 0.35  # 35% of total electricity is from renewables
+# tCO2/MWh (zero emissions)    # 0.312 tCO2/MWh (grid average emissions)
+RENEWABLES_CO2_INTENSITY = 0.0
 
-# Electricity Generation Mix (2021) - Detailed breakdown
-ELECTRICITY_MIX = {
+# Historical Energy Mix (2021) - For reference only, not used in model
+# NOTE: Model uses disaggregated carriers: Renewables, Gas, Other Energy
+TOTAL_ENERGY_MIX_HISTORICAL = {  # Historical electricity mix before sector separation
     'gas': 0.559,        # 55.9% natural gas (161.9 TWh)
     # 35.0% renewables (101.5 TWh: hydro, wind, solar, geothermal, biomass)
     'renewables': 0.35,
@@ -77,7 +79,7 @@ ELECTRICITY_MIX = {
 }
 
 # Renewable Electricity Breakdown (2021) - 101.5 TWh total
-RENEWABLE_ELECTRICITY_DETAIL = {
+RENEWABLES_DETAIL = {  # Breakdown of renewable sources
     'hydro': 46.0,       # TWh (15.9% of total generation)
     'wind': 20.5,        # TWh (7.1% of total generation)
     'solar_pv': 25.0,    # TWh (8.6% of total generation)
@@ -119,14 +121,14 @@ REFINING_CAPACITY = 1.9   # Million barrels/day refining capacity
 # Based on GSE/Eurostat official statistics - Option B (Grid Mix)
 
 ENERGY_CALIBRATION_TARGETS_2021 = {
-    # Total grid electricity (renewable 35% + fossil 65%)
-    # Includes all electricity generation embedded emissions
-    'electricity_total_twh': 310.0,
-    'electricity_renewable_share': 0.35,
-    'electricity_co2_intensity_kg_per_mwh': 312.0,  # Grid average
+    # Renewables sector (100% clean renewable energy)
+    # Represents 35% of total electricity demand in 2021
+    'renewables_total_twh': 310.0,
+    'renewables_share_of_total_electricity': 0.35,  # 35% penetration
+    'renewables_co2_intensity_kg_per_mwh': 0.0,  # Zero emissions
 
     # Natural gas for heating, industry, commercial (NOT power generation)
-    # Power generation gas is embedded in electricity above
+    # Power generation is separate
     'gas_non_power_twh': 720.0,  # 46.6 bcm × 15.45 MWh/bcm × 1e-6
     'gas_co2_intensity_kg_per_mwh': 202.0,  # Natural gas combustion
 
@@ -139,11 +141,9 @@ ENERGY_CALIBRATION_TARGETS_2021 = {
     'total_tfec_twh': 1820.0,  # 310 + 720 + 790
 
     # Note on calculation:
-    # Total electricity (310 TWh) includes:
-    #   - Renewable generation: 101.5 TWh (0 emissions)
-    #   - Gas generation: 161.9 TWh (embedded in electricity grid average)
-    #   - Coal generation: 15.4 TWh (embedded in electricity grid average)
-    #   - Oil generation: 4.4 TWh (embedded in electricity grid average)
+    # Renewables sector (310 TWh) = 100% clean renewable energy (solar, wind, hydro, etc.)
+    # This represents 35% of total electricity demand
+    # The other 65% of electricity comes from fossil sources (Gas, Other Energy sectors)
     # Gas sector (720 TWh) is ONLY non-power uses
     # Other Energy (790 TWh) is oil products, coal, and direct renewables
 }
@@ -153,7 +153,7 @@ ENERGY_CALIBRATION_TARGETS_2021 = {
 # =============================================================================
 
 # Electricity Consumption by Macro Region (Terna, kWh per capita)
-REGIONAL_ELECTRICITY_CONSUMPTION = {
+REGIONAL_RENEWABLES_CONSUMPTION = {  # kWh per capita
     'NW': 1350,    # kWh per capita (high industrial consumption)
     'NE': 1280,    # kWh per capita
     'CENTER': 1180,  # kWh per capita
@@ -179,7 +179,7 @@ TOTAL_CO2_EMISSIONS = 381.2  # Mt CO2 equivalent
 
 # CO2 Emissions by Sector (2021)
 CO2_EMISSIONS_SECTORS = {
-    'electricity': 119.5,  # Mt CO2 (31.4% of total)
+    'renewables': 0.0,     # Mt CO2 (Renewables sector has zero emissions)
     'industry': 76.2,      # Mt CO2 (20.0% of total)
     'transport': 95.8,     # Mt CO2 (25.1% of total)
     'buildings': 64.5,     # Mt CO2 (16.9% of total)
@@ -189,10 +189,10 @@ CO2_EMISSIONS_SECTORS = {
 
 # CO2 Emission Factors by Fuel (2021)
 CO2_EMISSION_FACTORS = {
+    'renewables': 0.0,     # tCO2/MWh (zero emissions)
     'natural_gas': 2.03,   # tCO2/MWh
     'coal': 3.47,          # tCO2/MWh
     'oil': 2.78,           # tCO2/MWh
-    'electricity': 0.312   # tCO2/MWh (grid average)
 }
 
 # =============================================================================
@@ -270,7 +270,7 @@ INVESTMENT_BY_ASSET = {
 INVESTMENT_BY_SECTOR = {
     'industry': 92800,         # €92.8 billion
     'services': 116000,        # €116.0 billion
-    'electricity': 39800,      # €39.8 billion
+    'renewables': 39800,       # €39.8 billion (renewable energy investment)
     'gas': 26500,              # €26.5 billion
     'other_energy': 33100,     # €33.1 billion
     'transport': 13300,        # €13.3 billion
@@ -379,8 +379,8 @@ PPI_2021 = 108.7  # 8.7% producer price inflation since 2015
 
 # Energy Price Indices (2021)
 ENERGY_PRICES_2021 = {
-    'electricity_households': 0.2226,  # €/kWh (including taxes)
-    'electricity_industry': 0.1582,    # €/kWh (excluding VAT)
+    'renewables_households': 0.2226,  # €/kWh (including taxes)
+    'renewables_industry': 0.1582,    # €/kWh (excluding VAT)
     'gas_households': 0.7344,          # €/m³ (including taxes)
     'gas_industry': 0.3156,            # €/m³ (excluding VAT)
     'gasoline': 1.563,                 # €/liter (including taxes)

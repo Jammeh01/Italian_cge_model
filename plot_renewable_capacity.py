@@ -26,14 +26,14 @@ colors = {
 # Load data
 print("Loading renewable capacity data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 renewable_cap_df = pd.read_excel(xl, 'Renewable_Capacity')
 
 # Extract data
-years = pd.to_numeric(renewable_cap_df.iloc[:, 0], errors='coerce').values
-cap_bau = pd.to_numeric(renewable_cap_df.iloc[:, 4], errors='coerce').values
-cap_ets1 = pd.to_numeric(renewable_cap_df.iloc[:, 5], errors='coerce').values
-cap_ets2 = pd.to_numeric(renewable_cap_df.iloc[:, 6], errors='coerce').values
+years = pd.to_numeric(renewable_cap_df.iloc[2:, 0], errors='coerce').values
+cap_bau = pd.to_numeric(renewable_cap_df.iloc[2:, 1], errors='coerce').values
+cap_ets1 = pd.to_numeric(renewable_cap_df.iloc[2:, 2], errors='coerce').values
+cap_ets2 = pd.to_numeric(renewable_cap_df.iloc[2:, 3], errors='coerce').values
 
 # Create figure
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -51,8 +51,8 @@ ax.set_xlabel('Year', fontsize=13, fontweight='bold')
 ax.set_ylabel('Renewable Capacity (GW)', fontsize=13, fontweight='bold')
 ax.legend(loc='upper left', frameon=True, shadow=True)
 ax.grid(True, alpha=0.3, linestyle='--')
-ax.set_xlim(2020, 2041)
-ax.set_xticks([2020, 2025, 2030, 2035, 2040])
+ax.set_xlim(2021, 2041)
+ax.set_xticks([2021, 2025, 2030, 2035, 2040])
 
 # Calculate ylim with valid data only
 max_cap = max([c for c in cap_ets2 if pd.notna(c)])

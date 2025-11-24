@@ -91,12 +91,14 @@ This recursive dynamic CGE model provides comprehensive analysis of:
    - Trade balance equations
 
 4. **Energy-Environment Block** (`energy_environment_block.py`)
-   - Energy demand by carrier (electricity, gas, other)
-   - CO2 emission calculations with specific emission factors:
-     - Electricity: 312 kg CO2/MWh
-     - Gas: 202 kg CO2/MWh
-     - Other Energy: 350 kg CO2/MWh
-   - Renewable energy capacity tracking
+   - Energy demand by carrier (renewables, gas, other energy)
+   - Endogenous renewable capacity tracking with investment-driven growth
+   - CO2 emission calculations with specific emission factors calibrated to Italian 2021 data:
+     - Renewables (100% clean electricity): 0 kg CO2/MWh
+     - Gas (heating, industry): 202 kg CO2/MWh  
+     - Other Energy (oil, coal): 350 kg CO2/MWh
+   - EU ETS implementation with Market Stability Reserve (ETS1) and Price Stability Mechanism (ETS2)
+   - Autonomous Energy Efficiency Improvement (AEEI) at 1.8% annually
 
 5. **Macro Indicators Block** (`macro_indicators_block.py`)
    - Real GDP calculation
@@ -111,18 +113,28 @@ This recursive dynamic CGE model provides comprehensive analysis of:
 ### Policy Scenarios
 
 - **BAU (Business as Usual)**
-  - Baseline projection without additional carbon pricing
-  - Reflects current policies and trends
+  - Baseline projection without additional carbon pricing beyond existing policies
+  - Autonomous energy efficiency improvements (1.8% annual AEEI)
+  - Natural renewable capacity growth reaching ~70% electricity share by 2040
+  - Italy 2021 baseline: 60 GW renewable capacity, 35% renewable electricity share
 
 - **ETS1 (Phase 1 - Industry)**
-  - EU Emissions Trading System for industrial sectors
-  - Carbon pricing on energy-intensive industries
-  - 2021 base year implementation
+  - EU Emissions Trading System Phase 4 for industrial sectors
+  - Carbon pricing starting at €53.90/tCO2 in 2021 (actual EU ETS price)
+  - Market Stability Reserve (MSR) mechanism manages supply, declining growth rate
+  - Price reaches €150/tCO2 by 2040 (practical upper bound)
+  - Covered sectors: Industry, Gas, Other Energy, Air Transport, Water Transport
+  - 35% renewable investment acceleration factor
+  - Renewable electricity share exceeds 80% by 2040
 
 - **ETS2 (Phase 2 - Buildings & Transport)**
-  - Extended ETS coverage to buildings and transport
-  - Broader carbon pricing across economy
-  - Implementation from 2027
+  - Extended ETS coverage to buildings and transport starting 2027
+  - ETS2 carbon pricing: €45.0/tCO2 in 2027 with Price Stability Mechanism (PSM)
+  - PSM ceiling maintains price at €45/tCO2 (policy design feature)
+  - Additional covered sectors: Road Transport, Other Transport, Services
+  - 60% renewable investment acceleration factor (80% in South/Islands)
+  - Renewable electricity share exceeds 90% by 2040
+  - Strongest decarbonization with comprehensive just transition support
 
 ## Model Hierarchy
 

@@ -2,14 +2,14 @@
 Energy Calibration Coefficients for Italian CGE Model
 Recalibrated to match official 2021 energy statistics (GSE, Eurostat, IEA)
 
-Option B: Grid Mix Approach
-- Electricity: Total grid electricity (310 TWh) with dynamic renewable share
+Updated Energy Sectors:
+- Renewables: 100% clean renewable energy (310 TWh) representing 35% of total electricity
 - Gas: Natural gas for end-use only (720 TWh, excludes power generation)
 - Other Energy: Oil products, coal, direct renewables (790 TWh)
 - Total: 1,820 TWh (matches official TFEC)
 
 Author: CGE Model Recalibration
-Date: October 2025
+Date: November 2025
 """
 
 import numpy as np
@@ -22,8 +22,8 @@ from italy_2021_data import ENERGY_CALIBRATION_TARGETS_2021
 # Official Italy 2021 Total Final Energy Consumption (TFEC)
 # Source: GSE (Gestore Servizi Energetici), Eurostat, IEA
 OFFICIAL_ENERGY_2021 = {
-    # Total grid electricity (renewable + fossil mix)
-    'electricity_twh': 310.0,
+    # Renewables sector (100% clean renewable energy)
+    'renewables_twh': 310.0,
     # Natural gas end-use (heating, industry, commercial)
     'gas_twh': 720.0,
     # Oil products (580) + Coal (60) + Direct renewables (150)
@@ -33,7 +33,7 @@ OFFICIAL_ENERGY_2021 = {
 
 # Current model output (before recalibration)
 CURRENT_MODEL_OUTPUT_2021 = {
-    'electricity_twh': 148.78,
+    'renewables_twh': 148.78,
     'gas_twh': 290.59,
     'other_energy_twh': 69.50,
     'total_twh': 508.87
@@ -45,7 +45,7 @@ CURRENT_MODEL_OUTPUT_2021 = {
 
 # Calculate scaling factors needed to match official statistics
 ENERGY_SCALING_FACTORS = {
-    'electricity': OFFICIAL_ENERGY_2021['electricity_twh'] / CURRENT_MODEL_OUTPUT_2021['electricity_twh'],
+    'renewables': OFFICIAL_ENERGY_2021['renewables_twh'] / CURRENT_MODEL_OUTPUT_2021['renewables_twh'],
     'gas': OFFICIAL_ENERGY_2021['gas_twh'] / CURRENT_MODEL_OUTPUT_2021['gas_twh'],
     'other_energy': OFFICIAL_ENERGY_2021['other_energy_twh'] / CURRENT_MODEL_OUTPUT_2021['other_energy_twh'],
     'total': OFFICIAL_ENERGY_2021['total_tfec_twh'] / CURRENT_MODEL_OUTPUT_2021['total_twh']
@@ -55,7 +55,7 @@ print("=" * 80)
 print("ENERGY CALIBRATION SCALING FACTORS")
 print("=" * 80)
 print(
-    f"Electricity scaling factor: {ENERGY_SCALING_FACTORS['electricity']:.4f} (×{ENERGY_SCALING_FACTORS['electricity']:.2f})")
+    f"Renewables scaling factor: {ENERGY_SCALING_FACTORS['renewables']:.4f} (×{ENERGY_SCALING_FACTORS['renewables']:.2f})")
 print(
     f"Gas scaling factor: {ENERGY_SCALING_FACTORS['gas']:.4f} (×{ENERGY_SCALING_FACTORS['gas']:.2f})")
 print(
@@ -76,7 +76,7 @@ def get_calibrated_energy_coefficient(energy_sector, user_sector, base_coefficie
     Parameters:
     -----------
     energy_sector : str
-        Energy carrier ('Electricity', 'Gas', 'Other Energy')
+        Energy carrier ('Renewables', 'Gas', 'Other Energy')
     user_sector : str
         Consuming sector or household region
     base_coefficient : float
@@ -90,7 +90,7 @@ def get_calibrated_energy_coefficient(energy_sector, user_sector, base_coefficie
 
     # Map energy sector names to scaling factors
     scaling_map = {
-        'Electricity': ENERGY_SCALING_FACTORS['electricity'],
+        'Renewables': ENERGY_SCALING_FACTORS['renewables'],
         'Gas': ENERGY_SCALING_FACTORS['gas'],
         'Other Energy': ENERGY_SCALING_FACTORS['other_energy']
     }
@@ -150,28 +150,28 @@ def get_all_energy_coefficients(sectors, household_regions, energy_sectors):
 # Regional energy consumption patterns (from italy_2021_data.py)
 REGIONAL_ENERGY_PATTERNS = {
     'NW': {  # Northwest (high industrial, high gas)
-        'electricity_multiplier': 1.15,  # 15% above average
+        'renewables_multiplier': 1.15,  # 15% above average
         # 32% above average (high heating + industry)
         'gas_multiplier': 1.32,
         'other_energy_multiplier': 0.90  # 10% below average
     },
     'NE': {  # Northeast (high industrial, high gas)
-        'electricity_multiplier': 1.09,  # 9% above average
+        'renewables_multiplier': 1.09,  # 9% above average
         'gas_multiplier': 1.24,          # 24% above average
         'other_energy_multiplier': 0.95  # 5% below average
     },
     'CENTER': {  # Center (Rome, moderate)
-        'electricity_multiplier': 1.00,  # Average
+        'renewables_multiplier': 1.00,  # Average
         'gas_multiplier': 1.00,          # Average
         'other_energy_multiplier': 1.05  # 5% above average
     },
     'SOUTH': {  # South (lower consumption)
-        'electricity_multiplier': 0.83,  # 17% below average
+        'renewables_multiplier': 0.83,  # 17% below average
         'gas_multiplier': 0.67,          # 33% below average (warmer climate)
         'other_energy_multiplier': 1.10  # 10% above average (more oil)
     },
     'ISLANDS': {  # Islands (Sicily, Sardinia - limited gas)
-        'electricity_multiplier': 0.89,  # 11% below average
+        'renewables_multiplier': 0.89,  # 11% below average
         # 55% below average (limited infrastructure)
         'gas_multiplier': 0.45,
         'other_energy_multiplier': 1.20  # 20% above average (oil-dependent)
@@ -186,7 +186,7 @@ def get_regional_energy_coefficient(energy_sector, household_region, base_coeffi
     Parameters:
     -----------
     energy_sector : str
-        Energy carrier ('Electricity', 'Gas', 'Other Energy')
+        Energy carrier ('Renewables', 'Gas', 'Other Energy')
     household_region : str
         Household region ('NW', 'NE', 'CENTER', 'SOUTH', 'ISLANDS')
     base_coefficient : float
@@ -203,7 +203,7 @@ def get_regional_energy_coefficient(energy_sector, household_region, base_coeffi
 
     # Map energy sector to multiplier
     multiplier_map = {
-        'Electricity': region_pattern.get('electricity_multiplier', 1.0),
+        'Renewables': region_pattern.get('renewables_multiplier', 1.0),
         'Gas': region_pattern.get('gas_multiplier', 1.0),
         'Other Energy': region_pattern.get('other_energy_multiplier', 1.0)
     }
@@ -238,7 +238,7 @@ def validate_energy_calibration(model_results):
 
     validation = {}
 
-    for energy_type in ['electricity', 'gas', 'other_energy']:
+    for energy_type in ['renewables', 'gas', 'other_energy']:
         official = OFFICIAL_ENERGY_2021[f'{energy_type}_twh']
         model = model_results.get(energy_type, 0)
         error = abs(model - official) / official * 100
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     print("ENERGY CALIBRATION SUMMARY")
     print("=" * 80)
     print("\nOFFICIAL 2021 ENERGY STATISTICS (GSE, Eurostat, IEA):")
-    print(f"  Electricity: {OFFICIAL_ENERGY_2021['electricity_twh']:.1f} TWh")
+    print(f"  Renewables: {OFFICIAL_ENERGY_2021['renewables_twh']:.1f} TWh")
     print(f"  Gas: {OFFICIAL_ENERGY_2021['gas_twh']:.1f} TWh")
     print(
         f"  Other Energy: {OFFICIAL_ENERGY_2021['other_energy_twh']:.1f} TWh")
@@ -282,7 +282,7 @@ if __name__ == "__main__":
 
     print("\nCURRENT MODEL OUTPUT (Before Recalibration):")
     print(
-        f"  Electricity: {CURRENT_MODEL_OUTPUT_2021['electricity_twh']:.1f} TWh")
+        f"  Renewables: {CURRENT_MODEL_OUTPUT_2021['renewables_twh']:.1f} TWh")
     print(f"  Gas: {CURRENT_MODEL_OUTPUT_2021['gas_twh']:.1f} TWh")
     print(
         f"  Other Energy: {CURRENT_MODEL_OUTPUT_2021['other_energy_twh']:.1f} TWh")
@@ -290,7 +290,7 @@ if __name__ == "__main__":
 
     print("\nREQUIRED ADJUSTMENTS:")
     print(
-        f"  Electricity: ×{ENERGY_SCALING_FACTORS['electricity']:.2f} ({OFFICIAL_ENERGY_2021['electricity_twh'] - CURRENT_MODEL_OUTPUT_2021['electricity_twh']:+.1f} TWh)")
+        f"  Renewables: ×{ENERGY_SCALING_FACTORS['renewables']:.2f} ({OFFICIAL_ENERGY_2021['renewables_twh'] - CURRENT_MODEL_OUTPUT_2021['renewables_twh']:+.1f} TWh)")
     print(
         f"  Gas: ×{ENERGY_SCALING_FACTORS['gas']:.2f} ({OFFICIAL_ENERGY_2021['gas_twh'] - CURRENT_MODEL_OUTPUT_2021['gas_twh']:+.1f} TWh)")
     print(

@@ -2,7 +2,7 @@
 Definitions and Sets for Italian CGE Model
 Based on actual SAM data with Italian regional disaggregation
 Dynamic recursive model structure following ThreeME approach
-Author: Italian CGE Model (2021-2040)
+Author: CGE-I5 Model (2021-2040)
 
 EU ETS Implementation:
 - ETS1 (EU ETS Phase 4): €53.90/tCO2e starting 2021, Market Stability Reserve (no formal ceiling)
@@ -16,7 +16,7 @@ import os
 
 class ModelDefinitions:
     """
-    Define all sets, parameters, and initial data structures for the Italian CGE model
+    Define all sets, parameters, and initial data structures for the CGE-I5 model
     Based on actual SAM.xlsx data structure
     """
 
@@ -34,18 +34,19 @@ class ModelDefinitions:
         # Italy 2021 CO2 emissions from fuel combustion (ISPRA, GSE, Eurostat)
         # Total CO2 from fuel combustion: ~466 MtCO2
         # Breakdown:
-        #   - Electricity grid: 96.7 MtCO2 (310 TWh × 312 kg/MWh)
+        #   - Renewables sector: 0 MtCO2 (100% clean renewable energy)
         #   - Natural gas end-use: 145.4 MtCO2 (720 TWh × 202 kg/MWh)
-        #   - Other energy (oil + coal - renewables): 224.0 MtCO2
+        #   - Other energy (oil + coal): 224.0 MtCO2
         # NOTE: This excludes process emissions, agriculture, land use
-        # MtCO2 (updated with grid mix)
+        # MtCO2 (updated with renewable sector structure)
         self.italy_2021_co2_fuel_combustion = 466.1
         # tCO2/Million EUR (fuel combustion only)
         self.italy_2021_co2_intensity_fuel_combustion = 0.261  # 466.1 / 1782.0
 
         # Renewable energy characteristics
-        # 100% renewable electricity in model
-        self.renewable_electricity_share_2021 = 1.0
+        # Renewables sector represents 100% clean renewable energy (35% of total electricity demand in 2021)
+        self.renewable_sector_purity = 1.0  # 100% clean
+        self.renewable_penetration_2021 = 0.35  # 35% of total electricity
         self.renewable_technologies = [
             'solar_pv', 'wind_onshore', 'wind_offshore', 'hydro', 'geothermal', 'biomass']
 
@@ -72,24 +73,22 @@ class ModelDefinitions:
 
         # Define energy sectors (disaggregated in SAM)
         # CO2 factors for fuel combustion - Italy 2021 data (ISPRA, GSE, Eurostat)
-        # NOTE: Electricity represents TOTAL GRID MIX (renewable + fossil)
-        # Option B: Grid Mix Approach for CGE realism and decarbonization modeling
+        # NOTE: Renewables represents 100% RENEWABLE electricity generation
+        # Updated to reflect SAM table where Renewables = only renewable electricity
         self.energy_sectors_detail = {
-            'ELECTRICITY': {
-                'sam_name': 'Electricity',
-                'description': 'Total grid electricity (renewable + fossil mix, 35% renewable in 2021)',
-                # kg CO2/MWh from grid electricity (weighted average 2021)
-                # Formula: base_factor × (1 - renewable_share)
-                # 2021: 312 kg/MWh with 35% renewable
-                # As renewable share grows, this factor decreases dynamically
-                'co2_factor_fuel_combustion': 312.0,
-                # Total emissions from electricity grid: 96.7 MtCO2 (310 TWh × 312 kg/MWh)
-                'italy_2021_fuel_combustion_mtco2': 96.7,
-                'renewable_share_2021': 0.35,  # 35% renewable, increases over time
-                'renewable_target_2030': 0.55,  # EU target 55% by 2030
-                'renewable_target_2040': 0.80,  # Projected 80% by 2040
-                'energy_sources': ['renewable_electricity', 'gas_power', 'coal_power', 'oil_power'],
-                'decarbonization_pathway': 'dynamic',  # CO2 factor decreases as renewables grow
+            'RENEWABLES': {
+                'sam_name': 'Renewables',
+                'description': '100% renewable electricity (solar, wind, hydro, geothermal, biomass)',
+                # kg CO2/MWh from renewable electricity (zero emissions)
+                # Renewables have no direct combustion emissions
+                'co2_factor_fuel_combustion': 0.0,
+                # Total emissions from renewable electricity: 0 MtCO2 (zero emissions)
+                'italy_2021_fuel_combustion_mtco2': 0.0,
+                'renewable_share_2021': 0.35,  # 35% renewable share in 2021
+                'renewable_target_2030': 0.55,  # 55% renewable target in 2030
+                'renewable_target_2040': 0.80,  # 80% renewable target in 2040
+                'energy_sources': ['solar_pv', 'wind_onshore', 'wind_offshore', 'hydro', 'geothermal', 'biomass'],
+                'decarbonization_pathway': 'zero_emissions',  # No emissions from renewables
                 'consumption_2021_twh': 310.0  # Calibration target
             },
             'GAS': {
@@ -98,7 +97,7 @@ class ModelDefinitions:
                 # kg CO2/MWh from natural gas combustion
                 'co2_factor_fuel_combustion': 202.0,
                 # Total emissions from gas end-use: 145.4 MtCO2 (720 TWh × 202 kg/MWh)
-                # NOTE: Gas power generation emissions are in ELECTRICITY sector above
+                # NOTE: Non-power generation uses only (heating, industry, commercial)
                 'italy_2021_fuel_combustion_mtco2': 145.4,
                 'end_uses': ['heating', 'industrial_process', 'commercial'],
                 # Calibration target (non-power only)
@@ -170,14 +169,23 @@ class ModelDefinitions:
 
         try:
             # Try to load the actual SAM data
-            sam_file_path = os.path.join('data', 'SAM.xlsx')
-            if not os.path.exists(sam_file_path):
-                sam_file_path = 'SAM.xlsx'
+            # Check multiple possible locations
+            possible_paths = [
+                os.path.join('..', 'data', 'SAM.xlsx'),  # From src directory
+                os.path.join('data', 'SAM.xlsx'),        # From root directory
+                'SAM.xlsx'                                # Current directory
+            ]
 
-            if os.path.exists(sam_file_path):
+            sam_file_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    sam_file_path = path
+                    break
+
+            if sam_file_path:
                 self.sam_data = pd.read_excel(sam_file_path, index_col=0)
                 print(
-                    f"Successfully loaded actual SAM with {self.sam_data.shape[0]} accounts")
+                    f"Successfully loaded actual SAM with {self.sam_data.shape[0]} accounts from {sam_file_path}")
                 self.extract_sam_structure_from_data()
             else:
                 print("SAM.xlsx not found, using known structure from code")
@@ -194,7 +202,7 @@ class ModelDefinitions:
 
         # Production sectors (from actual SAM)
         self.production_sectors_sam = [
-            'Agriculture', 'Industry', 'Electricity', 'Gas', 'Other Energy',
+            'Agriculture', 'Industry', 'Renewables', 'Gas', 'Other Energy',
             'Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport',
             'Other Transport', 'other Sectors (14)'
         ]
@@ -232,7 +240,7 @@ class ModelDefinitions:
         """Use known SAM structure from the code"""
 
         self.production_sectors_sam = [
-            'Agriculture', 'Industry', 'Electricity', 'Gas', 'Other Energy',
+            'Agriculture', 'Industry', 'Renewables', 'Gas', 'Other Energy',
             'Road Transport', 'Rail Transport', 'Air Transport', 'Water Transport',
             'Other Transport', 'other Sectors (14)'
         ]
@@ -254,7 +262,7 @@ class ModelDefinitions:
         self.sector_mapping = {
             'Agriculture': 'AGR',
             'Industry': 'IND',
-            'Electricity': 'ELEC',
+            'Renewables': 'RENEW',
             'Gas': 'GAS',
             'Other Energy': 'OENERGY',
             'Road Transport': 'ROAD',
@@ -271,7 +279,7 @@ class ModelDefinitions:
         self.households = list(self.italian_regions.keys())
 
         # Energy and transport classifications
-        self.energy_sectors = ['ELEC', 'GAS', 'OENERGY']
+        self.energy_sectors = ['RENEW', 'GAS', 'OENERGY']
         self.transport_sectors = ['ROAD', 'RAIL', 'AIR', 'WATER', 'OTRANS']
 
         # Non-energy sectors
@@ -429,8 +437,8 @@ class ModelDefinitions:
         # Energy parameters
         self.energy_params = {
             'autonomous_energy_efficiency': 0.01,  # 1% annual AEEI
-            'electricity_renewable_share': 0.35,   # 35.0% renewables in 2021
-            'renewable_growth_rate': 0.05,         # 5% annual renewable growth
+            'renewables_penetration_rate': 0.35,   # 35.0% penetration in 2021
+            'renewable_growth_rate': 0.05,         # 5% annual renewable capacity growth
         }
 
         # Trade parameters

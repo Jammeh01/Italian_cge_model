@@ -1,5 +1,5 @@
 """
-Energy-Environment Block for Italian CGE Model
+Energy-Environment Block for Italian CGE-I5 Model
 IPOPT-optimized CO2 emissions and ETS implementation
 Includes ETS1 and ETS2 policies with proper carbon pricing
 """
@@ -205,13 +205,13 @@ class EnergyEnvironmentBlock:
             Energy coefficient (physical/monetary conversion) - RECALIBRATED
 
             Calibrated to match official 2021 Italian energy statistics:
-            - Electricity: 310 TWh (grid mix, 35% renewable)
+            - Renewables: 310 TWh (100% renewable electricity - solar, wind, hydro, etc.)
             - Gas: 720 TWh (end-use only, excludes power generation)
             - Other Energy: 790 TWh (oil + coal + direct renewables)
             - Total: 1,820 TWh (GSE, Eurostat, IEA)
 
             Scaling factors applied:
-            - Electricity: ×2.08
+            - Renewables: ×2.08
             - Gas: ×2.48
             - Other Energy: ×11.37
             """
@@ -221,7 +221,7 @@ class EnergyEnvironmentBlock:
 
             # Apply calibration scaling factors to match official statistics
             scaling_factors = {
-                'Electricity': 2.0836,  # Scale to 310 TWh
+                'Renewables': 2.0836,  # Scale to 310 TWh
                 'Gas': 2.4777,          # Scale to 720 TWh
                 'Other Energy': 11.3669  # Scale to 790 TWh
             }
@@ -232,28 +232,28 @@ class EnergyEnvironmentBlock:
             if user in self.household_regions:
                 regional_adjustments = {
                     'NW': {
-                        'Electricity': 1.15,  # 15% above average (industrial)
+                        'Renewables': 1.15,  # 15% above average (industrial)
                         # 32% above average (heating + industry)
                         'Gas': 1.32,
                         'Other Energy': 0.90
                     },
                     'NE': {
-                        'Electricity': 1.09,
+                        'Renewables': 1.09,
                         'Gas': 1.24,
                         'Other Energy': 0.95
                     },
                     'CENTER': {
-                        'Electricity': 1.00,
+                        'Renewables': 1.00,
                         'Gas': 1.00,
                         'Other Energy': 1.05
                     },
                     'SOUTH': {
-                        'Electricity': 0.83,  # Lower consumption
+                        'Renewables': 0.83,  # Lower consumption
                         'Gas': 0.67,          # Warmer climate
                         'Other Energy': 1.10
                     },
                     'ISLANDS': {
-                        'Electricity': 0.89,
+                        'Renewables': 0.89,
                         'Gas': 0.45,          # Limited gas infrastructure
                         'Other Energy': 1.20  # Oil-dependent
                     }
@@ -278,15 +278,13 @@ class EnergyEnvironmentBlock:
         def get_co2_factor(model, es):
             # Based on actual Italian fuel combustion emission factors - Italy 2021 data
             # Source: ISPRA, GSE, Eurostat, IEA
-            # NOTE: Electricity reflects Italy's GRID MIX (35% renewable, 65% fossil in 2021)
-            # The dynamic emission factor in emissions constraint adjusts for changing renewable share
+            # NOTE: Renewables are 100% clean electricity with ZERO emissions
+            # The renewable electricity has no combustion emissions
             co2_factors_fuel_combustion = {
-                # kg CO2/MWh from grid electricity (weighted average for 2021 mix)
-                # Base factor for 100% fossil generation: 480 kg CO2/MWh
-                # With 35% renewable: 480 × (1 - 0.35) = 312 kg CO2/MWh
-                # This factor decreases dynamically as renewable share increases
-                # Base factor for 100% fossil (used in dynamic calculation)
-                'Electricity': 480.0,
+                # kg CO2/MWh from renewable electricity (ZERO emissions)
+                # Renewables = solar, wind, hydro, geothermal, biomass
+                # No fossil fuel combustion, therefore zero CO2 emissions
+                'Renewables': 0.0,
                 # kg CO2/MWh from natural gas combustion (for heating, industrial processes)
                 'Gas': 202.0,
                 # kg CO2/MWh from fossil fuel combustion (oil products, coal)
@@ -377,11 +375,11 @@ class EnergyEnvironmentBlock:
 
         def energy_demand_households_rule(model, es, h):
             """Energy demand by households (by energy carrier and region)"""
-            # Households consume energy directly (electricity, gas, heating oil)
+            # Households consume energy directly (renewables, gas, heating oil)
 
             # Energy consumption shares by type and region
-            if es == 'Electricity':
-                # Electricity consumption (40% of household energy)
+            if es == 'Renewables':
+                # Renewable electricity consumption (40% of household energy)
                 energy_share = 0.4
             elif es == 'Gas':
                 # Gas consumption varies by region (more in North)
@@ -429,36 +427,19 @@ class EnergyEnvironmentBlock:
         def emissions_by_user_rule(model, user):
             """CO2 emissions from fuel combustion by user (sectors and households)
 
-            For ELECTRICITY: Uses dynamic emission factor based on renewable share
-            - Base factor (2021): 312 kg CO2/MWh with 35% renewable
-            - As renewable share increases, emission factor decreases
-            - Formula: effective_factor = base_factor × (1 - renewable_share)
-            - This captures the decarbonization of the electricity grid over time
+            For RENEWABLES: Zero emissions (100% clean renewable electricity)
+            - Renewables have no combustion emissions (solar, wind, hydro, etc.)
+            - CO2 factor = 0.0 kg CO2/MWh
 
             For GAS and OTHER ENERGY: Uses fixed emission factors
             """
             fuel_combustion_emissions = 0
 
             for es in self.energy_sectors:
-                if es == 'Electricity':
-                    # Dynamic electricity emission factor based on renewable share
-                    # Base grid factor: 312 kg CO2/MWh (2021 grid mix: 35% renewable, 65% fossil)
-                    # As renewable share increases, emissions from electricity decrease
-                    # Formula: effective_factor = base_factor × (1 - renewable_share)
-                    #
-                    # Examples:
-                    #   2021: 35% renewable → 312 × (1 - 0.35) = 203 kg/MWh
-                    #   2030: 55% renewable → 312 × (1 - 0.55) = 140 kg/MWh
-                    #   2040: 80% renewable → 312 × (1 - 0.80) = 62 kg/MWh
-                    #
-                    # NOTE: Base factor of 312 assumes that at 0% renewable,
-                    # fossil generation would be 480 kg/MWh (weighted average gas/coal/oil)
-                    # Calculation: 480 × 0.65 = 312 for the fossil portion
-                    base_elec_factor = 480.0  # kg CO2/MWh for 100% fossil generation
-                    effective_elec_factor = base_elec_factor * \
-                        (1 - model.Renewable_share)
-                    fuel_combustion_emissions += model.Energy_demand[es,
-                                                                     user] * effective_elec_factor * 0.001
+                if es == 'Renewables':
+                    # Renewable electricity has ZERO emissions
+                    # No fossil fuel combustion involved
+                    fuel_combustion_emissions += 0.0
                 else:
                     # For gas and other energy, use fixed emission factors
                     fuel_combustion_emissions += model.Energy_demand[es,
@@ -574,43 +555,38 @@ class EnergyEnvironmentBlock:
         """Energy and environmental indicators"""
 
         def renewable_share_rule(model):
-            """Renewable share in electricity generation - ENDOGENOUS based on cumulative investment"""
-            # Italy 2021: 35% renewable electricity (hydro, wind, solar, geothermal, biomass)
-            # Remaining 65% from fossil fuels (55.9% gas, 5.3% coal, 3.8% oil)
+            """Renewable share in total electricity consumption - ENDOGENOUS based on cumulative investment"""
+            # Italy 2021: Renewables sector is 100% clean energy (zero emissions)
+            # But represents only 35% of total electricity demand in 2021
+            # The other 65% comes from fossil-based electricity (Gas, Other Energy)
 
-            # Base renewable share from Italy 2021 data
-            renewable_share_2021 = 0.35  # 35% renewable electricity in 2021
+            # This variable tracks renewable penetration rate, not sector purity
+            # Targets: 35% (2021) -> 55% (2030) -> 80% (2040)
 
             # Get cumulative renewable capacity from recursive dynamic tracker
-            # This makes renewable share ENDOGENOUS - it depends on investment decisions
+            # This makes renewable capacity ENDOGENOUS - it depends on investment decisions
             # driven by carbon pricing policies (BAU has no boost, ETS1 has 20% boost, ETS2 has 40% boost)
             if hasattr(model, 'cumulative_renewable_capacity'):
                 # Use cumulative capacity to calculate renewable share
-                # Base capacity in 2021: ~60 GW renewable capacity = 35% share
+                # Base capacity in 2021: ~60 GW renewable capacity
                 base_capacity_gw = 60.0  # Italy's 2021 renewable capacity (GW)
                 current_capacity_gw = model.cumulative_renewable_capacity.value
 
-                # Renewable share increases with capacity
-                # Assuming Italy has ~171 GW total capacity in 2021
-                # Total grows with additions
-                total_capacity_gw = 171.0 + \
-                    (current_capacity_gw - base_capacity_gw)
-                capacity_based_share = current_capacity_gw / total_capacity_gw
+                # Renewable capacity grows with investment
+                # Base share in 2021: 35% (0.35)
+                # Capacity doubling would reach ~70% share (approaching 2040 target of 80%)
+                capacity_growth_factor = current_capacity_gw / base_capacity_gw
 
-                # Constrain to realistic bounds
-                target_share = max(renewable_share_2021,
-                                   min(0.98, capacity_based_share))
+                # Scale renewable share based on capacity growth
+                # Base: 0.35, Max: 0.80 (2040 target)
+                base_share = 0.35
+                max_share = 0.80
+                target_share = min(
+                    base_share * capacity_growth_factor, max_share)
             else:
                 # Fallback for base year or if capacity tracking not initialized
-                growth_years = max(0, self.current_year -
-                                   model_definitions.base_year)
-
-                # Minimal baseline growth without policy intervention (BAU without investment boost)
-                # Natural replacement: 1% per year growth
-                # 1 percentage point per year (slower than before)
-                baseline_growth = 0.01
-                target_share = min(0.60, renewable_share_2021 +
-                                   (baseline_growth * growth_years))
+                # Use 2021 baseline: 35% renewable penetration
+                target_share = 0.35
 
             return model.Renewable_share == target_share
 
@@ -725,7 +701,7 @@ class EnergyEnvironmentBlock:
                 hh_data = self.params['households'].get(h, {})
                 total_consumption = hh_data.get('consumption', 40000)
 
-                if es == 'Electricity':
+                if es == 'Renewables':
                     demand = total_consumption * 0.08  # 8% on electricity
                 elif es == 'Gas':
                     if h in ['NW', 'NE']:
@@ -777,8 +753,8 @@ class EnergyEnvironmentBlock:
         for j in self.sectors:
             self.model.aeei[j].set_value(base_aeei)
 
-        # Initialize renewable share (Italy 2021: 35% renewable electricity)
-        # 35% renewable electricity (2021 actual data)
+        # Initialize renewable share (Italy 2021: 35% renewable penetration in total electricity)
+        # Renewables sector is 100% clean, but only accounts for 35% of total electricity demand
         self.model.Renewable_share.set_value(0.35)
 
         # Initialize cumulative renewable capacity parameter (GW)

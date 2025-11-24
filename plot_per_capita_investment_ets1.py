@@ -29,7 +29,7 @@ colors = {
 # Load data
 print("Loading regional renewable investment data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 renewable_inv_df = pd.read_excel(xl, 'Renewable_Investment')
 
 # Regional data
@@ -41,12 +41,13 @@ row_2040_inv = renewable_inv_df[renewable_inv_df.iloc[:, 0] == 2040]
 
 if not row_2040_inv.empty:
     # Extract regional investment (ETS1 columns)
+    # Centre: col 2, Islands: col 5, Northeast: col 8, Northwest: col 11, South: col 17
     regional_inv_ets1 = [
-        row_2040_inv.iloc[0, 10],  # Northwest ETS1
-        row_2040_inv.iloc[0, 7],   # Northeast ETS1
-        row_2040_inv.iloc[0, 1],   # Centre ETS1
-        row_2040_inv.iloc[0, 16],  # South ETS1
-        row_2040_inv.iloc[0, 4]    # Islands ETS1
+        row_2040_inv.iloc[0, 11],  # Northwest ETS1
+        row_2040_inv.iloc[0, 8],   # Northeast ETS1
+        row_2040_inv.iloc[0, 2],   # Centre ETS1
+        row_2040_inv.iloc[0, 17],  # South ETS1
+        row_2040_inv.iloc[0, 5]    # Islands ETS1
     ]
 
     # Calculate per capita investment

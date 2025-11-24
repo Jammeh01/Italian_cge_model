@@ -20,18 +20,20 @@ plt.rcParams['legend.fontsize'] = 11
 # Load data
 print("Loading GDP data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 gdp_df = pd.read_excel(xl, 'Macroeconomy_GDP')
 
-# Extract years and filter for 2020-2040
+# Extract years and filter for 2021-2040
 years = pd.to_numeric(gdp_df.iloc[2:, 0], errors='coerce').values
-mask = (years >= 2020) & (years <= 2040)
+mask = (years >= 2021) & (years <= 2040)
 years = years[mask]
 
-# Extract Real GDP data in Billion EUR (BAU=4, ETS1=5, ETS2=6)
-gdp_bau = pd.to_numeric(gdp_df.iloc[2:, 4], errors='coerce').values[mask]
-gdp_ets1 = pd.to_numeric(gdp_df.iloc[2:, 5], errors='coerce').values[mask]
-gdp_ets2 = pd.to_numeric(gdp_df.iloc[2:, 6], errors='coerce').values[mask]
+# Extract Real GDP data in Billion EUR
+# Column structure: Year (0), then scenarios for each metric
+# Real_GDP_Total_Billion_EUR columns are at positions 1, 2, 3 for BAU, ETS1, ETS2
+gdp_bau = pd.to_numeric(gdp_df.iloc[2:, 1], errors='coerce').values[mask]
+gdp_ets1 = pd.to_numeric(gdp_df.iloc[2:, 2], errors='coerce').values[mask]
+gdp_ets2 = pd.to_numeric(gdp_df.iloc[2:, 3], errors='coerce').values[mask]
 
 # Define colors
 color_bau = '#4169E1'   # Medium-dark blue (Royal Blue)
@@ -96,8 +98,8 @@ ax2.text(0.05, 0.05, summary_text, transform=ax2.transAxes,
                                                            facecolor='wheat', alpha=0.5))
 
 # Set x-axis limits and ticks
-ax2.set_xlim(2020, 2040)
-ax2.set_xticks([2020, 2022.5, 2025, 2027.5, 2030, 2032.5, 2035, 2037.5, 2040])
+ax2.set_xlim(2021, 2040)
+ax2.set_xticks([2021, 2023, 2025, 2027, 2030, 2033, 2035, 2037, 2040])
 
 plt.tight_layout()
 

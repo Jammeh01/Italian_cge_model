@@ -20,7 +20,7 @@ plt.rcParams['legend.fontsize'] = 11
 # Load data
 print("Loading sectoral value added data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 va_df = pd.read_excel(xl, 'Production_Value_Added')
 
 # Get 2040 data
@@ -28,39 +28,40 @@ row_2040 = va_df[va_df.iloc[:, 0] == 2040]
 
 if not row_2040.empty:
     # Extract sectoral value added for 2040
+    # Columns: Year=0, then for each sector: BAU, ETS1, ETS2
     # Agriculture: BAU col 1, ETS1 col 2, ETS2 col 3
-    # Energy: BAU col 4, ETS1 col 5, ETS2 col 6
-    # Industry: BAU col 7, ETS1 col 8, ETS2 col 9
-    # Services: BAU col 10, ETS1 col 11, ETS2 col 12
-    # Transport: BAU col 13, ETS1 col 14, ETS2 col 15
+    # Industry: BAU col 4, ETS1 col 5, ETS2 col 6
+    # Energy: BAU col 7, ETS1 col 8, ETS2 col 9
+    # Transport: BAU col 10, ETS1 col 11, ETS2 col 12
+    # Services: BAU col 13, ETS1 col 14, ETS2 col 15
 
     sectors = ['Agriculture', 'Industry', 'Energy', 'Transport', 'Services']
 
     # BAU values (baseline)
     bau_values = {
         'Agriculture': row_2040.iloc[0, 1],
-        'Energy': row_2040.iloc[0, 4],
-        'Industry': row_2040.iloc[0, 7],
-        'Services': row_2040.iloc[0, 10],
-        'Transport': row_2040.iloc[0, 13]
+        'Industry': row_2040.iloc[0, 4],
+        'Energy': row_2040.iloc[0, 7],
+        'Transport': row_2040.iloc[0, 10],
+        'Services': row_2040.iloc[0, 13]
     }
 
     # ETS1 values
     ets1_values = {
         'Agriculture': row_2040.iloc[0, 2],
-        'Energy': row_2040.iloc[0, 5],
-        'Industry': row_2040.iloc[0, 8],
-        'Services': row_2040.iloc[0, 11],
-        'Transport': row_2040.iloc[0, 14]
+        'Industry': row_2040.iloc[0, 5],
+        'Energy': row_2040.iloc[0, 8],
+        'Transport': row_2040.iloc[0, 11],
+        'Services': row_2040.iloc[0, 14]
     }
 
     # ETS2 values
     ets2_values = {
         'Agriculture': row_2040.iloc[0, 3],
-        'Energy': row_2040.iloc[0, 6],
-        'Industry': row_2040.iloc[0, 9],
-        'Services': row_2040.iloc[0, 12],
-        'Transport': row_2040.iloc[0, 15]
+        'Industry': row_2040.iloc[0, 6],
+        'Energy': row_2040.iloc[0, 9],
+        'Transport': row_2040.iloc[0, 12],
+        'Services': row_2040.iloc[0, 15]
     }
 
     # Calculate percentage changes relative to BAU

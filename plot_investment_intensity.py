@@ -26,17 +26,17 @@ colors = {
 # Load data
 print("Loading renewable investment data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 renewable_inv_df = pd.read_excel(xl, 'Renewable_Investment')
 
 # Extract data
-years = pd.to_numeric(renewable_inv_df.iloc[:, 0], errors='coerce').values
+years = pd.to_numeric(renewable_inv_df.iloc[2:, 0], errors='coerce').values
 inv_share_bau = pd.to_numeric(
-    renewable_inv_df.iloc[:, 13], errors='coerce').values
+    renewable_inv_df.iloc[2:, 4], errors='coerce').values
 inv_share_ets1 = pd.to_numeric(
-    renewable_inv_df.iloc[:, 14], errors='coerce').values
+    renewable_inv_df.iloc[2:, 5], errors='coerce').values
 inv_share_ets2 = pd.to_numeric(
-    renewable_inv_df.iloc[:, 15], errors='coerce').values
+    renewable_inv_df.iloc[2:, 6], errors='coerce').values
 
 # Create figure
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -54,8 +54,8 @@ ax.set_xlabel('Year', fontsize=13, fontweight='bold')
 ax.set_ylabel('Investment Share of GDP (%)', fontsize=13, fontweight='bold')
 ax.legend(loc='upper left', frameon=True, shadow=True)
 ax.grid(True, alpha=0.3, linestyle='--')
-ax.set_xlim(2020, 2041)
-ax.set_xticks([2020, 2025, 2030, 2035, 2040])
+ax.set_xlim(2021, 2041)
+ax.set_xticks([2021, 2025, 2030, 2035, 2040])
 
 # Calculate ylim with valid data only
 all_data = list(inv_share_bau) + list(inv_share_ets1) + list(inv_share_ets2)

@@ -28,7 +28,7 @@ colors = {
 # Load data
 print("Loading regional renewable capacity data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 renewable_cap_df = pd.read_excel(xl, 'Renewable_Capacity')
 
 # Regional data
@@ -38,13 +38,14 @@ regions = ['Northwest', 'Northeast', 'Centre', 'South', 'Islands']
 row_2040 = renewable_cap_df[renewable_cap_df.iloc[:, 0] == 2040]
 
 if not row_2040.empty:
-    # Extract regional capacities (ETS1 columns - different from ETS2)
+    # Extract regional capacities (ETS1 columns)
+    # Centre: col 8, Islands: col 11, Northeast: col 14, Northwest: col 17, South: col 20
     regional_cap_ets1 = [
-        row_2040.iloc[0, 16],  # Northwest ETS1
-        row_2040.iloc[0, 13],  # Northeast ETS1
-        row_2040.iloc[0, 7],   # Centre ETS1
-        row_2040.iloc[0, 19],  # South ETS1
-        row_2040.iloc[0, 10]   # Islands ETS1
+        row_2040.iloc[0, 17],  # Northwest ETS1
+        row_2040.iloc[0, 14],  # Northeast ETS1
+        row_2040.iloc[0, 8],   # Centre ETS1
+        row_2040.iloc[0, 20],  # South ETS1
+        row_2040.iloc[0, 11]   # Islands ETS1
     ]
 
     # Create figure

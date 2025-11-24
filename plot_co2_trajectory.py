@@ -26,14 +26,14 @@ colors = {
 # Load data
 print("Loading CO2 emissions data...")
 xl = pd.ExcelFile(
-    'results/Italian_CGE_Enhanced_Dynamic_Results_20251021_151832.xlsx')
+    'results/Italian_CGE_Enhanced_Dynamic_Results_20251124_135016.xlsx')
 co2_df = pd.read_excel(xl, 'CO2_Emissions_Totals')
 
-# Extract data
-years = pd.to_numeric(co2_df.iloc[:, 0], errors='coerce').values
-co2_bau = pd.to_numeric(co2_df.iloc[:, 10], errors='coerce').values
-co2_ets1 = pd.to_numeric(co2_df.iloc[:, 11], errors='coerce').values
-co2_ets2 = pd.to_numeric(co2_df.iloc[:, 12], errors='coerce').values
+# Extract data - Column structure: Year, then scenarios for Total_CO2_Emissions_MtCO2
+years = pd.to_numeric(co2_df.iloc[2:, 0], errors='coerce').values
+co2_bau = pd.to_numeric(co2_df.iloc[2:, 1], errors='coerce').values
+co2_ets1 = pd.to_numeric(co2_df.iloc[2:, 2], errors='coerce').values
+co2_ets2 = pd.to_numeric(co2_df.iloc[2:, 3], errors='coerce').values
 
 # Create figure
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -52,8 +52,8 @@ ax.set_xlabel('Year', fontsize=13, fontweight='bold')
 ax.set_ylabel('CO₂ Emissions (MtCO₂)', fontsize=13, fontweight='bold')
 ax.legend(loc='upper right', frameon=True, shadow=True)
 ax.grid(True, alpha=0.3, linestyle='--')
-ax.set_xlim(2020, 2041)
-ax.set_xticks([2020, 2025, 2030, 2035, 2040])
+ax.set_xlim(2021, 2041)
+ax.set_xticks([2021, 2025, 2030, 2035, 2040])
 
 # Calculate ylim with valid data only
 all_data = list(co2_bau) + list(co2_ets1) + list(co2_ets2)

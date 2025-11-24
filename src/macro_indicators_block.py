@@ -239,7 +239,7 @@ class MacroIndicatorsBlock:
         # Energy intensity
         def energy_intensity_rule(model):
             """Energy intensity = Total energy / GDP"""
-            total_energy = sum(model.TOT_Energy[es] for es in ['Electricity', 'Gas', 'Other Energy']
+            total_energy = sum(model.TOT_Energy[es] for es in ['Renewables', 'Gas', 'Other Energy']
                                if es in self.calibrated_data['energy_sectors'])
             return model.Energy_Intensity * model.GDP_exp == total_energy
 
@@ -379,7 +379,7 @@ def test_macro_indicators():
     model.Y_H = pyo.Var(households, initialize=50.0)
     model.Total_Emissions = pyo.Var(initialize=50000.0)
     model.TOT_Energy = pyo.Var(
-        ['Electricity', 'Gas', 'Other Energy'], initialize=1000.0)
+        ['Renewables', 'Gas', 'Other Energy'], initialize=1000.0)
 
     # Add carbon pricing variables for testing
     model.Carbon_Revenue = pyo.Var(initialize=1000.0)
