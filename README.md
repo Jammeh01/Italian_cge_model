@@ -9,7 +9,7 @@ This recursive dynamic CGE model provides comprehensive analysis of:
 - **Multi-sector economic modeling** with detailed production structure
 - **Dynamic simulation** from 2021 to 2040
 - **Environmental policy scenarios** including EU ETS implementation
-- **Energy demand tracking** by carrier type (electricity, gas, other energy)
+- **Energy demand tracking** (renewables, gas, other energy)
 - **CO2 emissions analysis** with carbon pricing mechanisms
 - **Regional disaggregation** across Italy's five macro-regions
 
@@ -19,7 +19,7 @@ This recursive dynamic CGE model provides comprehensive analysis of:
 
 - **Recursive Dynamic CGE Framework**: Multi-period optimization with calibrated base year (2021)
 - **Environmental Module**: Detailed CO2 emissions tracking and carbon pricing mechanisms
-- **Energy Disaggregation**: Electricity (renewable/non-renewable), gas, and other energy carriers
+- **Energy Disaggregation**: Electricity [(renewable/non-renewable), gas, and other energy carriers]
 - **Regional Analysis**: Full disaggregation by Italy's five macro-regions
 - **Policy Simulation**: EU ETS (Phase 1: Industry, Phase 2: Buildings & Transport)
 - **Comprehensive Output**: 15+ indicator categories with detailed sectoral breakdowns
@@ -91,7 +91,7 @@ This recursive dynamic CGE model provides comprehensive analysis of:
    - Trade balance equations
 
 4. **Energy-Environment Block** (`energy_environment_block.py`)
-   - Energy demand by carrier (renewables, gas, other energy)
+   - Energy demand (renewables, gas, other energy)
    - Endogenous renewable capacity tracking with investment-driven growth
    - CO2 emission calculations with specific emission factors calibrated to Italian 2021 data:
      - Renewables (100% clean electricity): 0 kg CO2/MWh
