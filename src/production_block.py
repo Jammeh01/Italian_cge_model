@@ -179,6 +179,15 @@ class ProductionBlock:
             doc="Factor prices"
         )
 
+        # Price of the capital-labour composite (determined by dual cost function)
+        self.model.pKL = pyo.Var(
+            self.sectors,
+            domain=pyo.PositiveReals,
+            bounds=(0.05, 50.0),
+            initialize=2.0,
+            doc="Price of KL composite (Cobb-Douglas dual cost)"
+        )
+
     def add_production_parameters(self):
         """Add production parameters calibrated from SAM"""
 
@@ -192,8 +201,28 @@ class ProductionBlock:
 
         # Value-added CES parameters
         def get_va_alpha(model, j):
+            """Calibrate CES scale factor so VA = base_va at base EN and KL."""
             sector_data = self.params['sectors'].get(j, {})
-            return sector_data.get('value_added', 600) / self.output_scale
+            base_va = sector_data.get('value_added', 600) / self.output_scale
+            sigma = elasticities['va_substitution']
+            rho = (sigma - 1.0) / sigma
+            base_output = sector_data.get('gross_output', 1000) / self.output_scale
+            energy_intensity = sector_data.get('energy_intensity', 0.1)
+            base_en = max(8.76, base_output * energy_intensity * 8760)
+            base_kl = max(0.1, base_va * 0.8)
+            if sector_data.get('is_energy_sector', False):
+                d_en = 0.4
+            elif sector_data.get('is_transport_sector', False):
+                d_en = 0.3
+            else:
+                d_en = 0.1
+            d_kl = 1.0 - d_en
+            if abs(rho) < 1e-6:
+                ces_val = (base_en ** d_en) * (base_kl ** d_kl)
+            else:
+                inner = d_en * (base_en ** rho) + d_kl * (base_kl ** rho)
+                ces_val = inner ** (1.0 / rho) if inner > 1e-20 else 1.0
+            return base_va / ces_val if ces_val > 1e-10 else base_va
 
         def get_va_rho(model, j):
             sigma = elasticities['va_substitution']
@@ -323,15 +352,16 @@ class ProductionBlock:
 
         # Value-added CES function (Energy-Capital-Labor aggregate)
         def value_added_ces_rule(model, j):
-            """VA = alpha_va * [delta_en*EN^rho + delta_kl*KL^rho]^(1/rho)"""
-            # Use Cobb-Douglas form as CES approximation
-            # VA = alpha_va * EN^delta_en * KL^delta_kl
-
-            # For numerical stability, ensure positive base values
-            en_term = (model.EN[j] + 1e-6) ** model.delta_en[j]
-            kl_term = (model.KL[j] + 1e-6) ** model.delta_kl[j]
-
-            return model.VA[j] == model.alpha_va[j] * en_term * kl_term
+            """True CES: VA = alpha_va * [delta_en*EN^rho + delta_kl*KL^rho]^(1/rho)"""
+            rho = pyo.value(model.rho_va[j])   # (sigma-1)/sigma, e.g. -0.4286 for sigma=0.7
+            eps = 1e-6
+            if abs(rho) < 1e-4:  # Cobb-Douglas limit (sigma -> 1)
+                en_term = (model.EN[j] + eps) ** pyo.value(model.delta_en[j])
+                kl_term = (model.KL[j] + eps) ** pyo.value(model.delta_kl[j])
+                return model.VA[j] == model.alpha_va[j] * en_term * kl_term
+            ces_inner = (model.delta_en[j] * (model.EN[j] + eps) ** rho
+                         + model.delta_kl[j] * (model.KL[j] + eps) ** rho)
+            return model.VA[j] == model.alpha_va[j] * (ces_inner ** (1.0 / rho))
 
         self.model.eq_value_added_ces = pyo.Constraint(
             self.sectors,
@@ -354,7 +384,22 @@ class ProductionBlock:
         self.model.eq_capital_labor_ces = pyo.Constraint(
             self.sectors,
             rule=capital_labor_ces_rule,
-            doc="Capital-Labor aggregate (linearized)"
+            doc="Capital-Labor aggregate (Cobb-Douglas)"
+        )
+
+        # pKL: dual cost function for Cobb-Douglas KL aggregate
+        # pKL = (w/delta_l)^delta_l * (r/delta_k)^delta_k
+        def pKL_definition_rule(model, j):
+            dl = pyo.value(model.delta_l[j])
+            dk = pyo.value(model.delta_k[j])
+            eps = 1e-8
+            return model.pKL[j] == ((model.pf['Labour'] / (dl + eps)) ** dl
+                                    * (model.pf['Capital'] / (dk + eps)) ** dk)
+
+        self.model.eq_pKL_definition = pyo.Constraint(
+            self.sectors,
+            rule=pKL_definition_rule,
+            doc="KL composite price via Cobb-Douglas dual cost"
         )
 
         # Energy demand function with AEEI (MWh annual)
@@ -384,11 +429,9 @@ class ProductionBlock:
 
         # Factor demand FOCs (simplified to avoid division)
         def labor_demand_foc_rule(model, j):
-            """Labor demand from marginal productivity condition"""
-            # Simplified: pf_L * F_L = pva * marginal_share_L
-            # Avoid division by reformulating as: pf_L * F_L = pva * delta_l * KL
+            """Labor cost share: w*L = delta_l * pKL * KL  (uses pKL, not pva)"""
             return (model.pf['Labour'] * model.F['Labour', j] ==
-                    model.pva[j] * model.delta_l[j] * model.KL[j])
+                    model.pKL[j] * model.delta_l[j] * model.KL[j])
 
         self.model.eq_labor_demand_foc = pyo.Constraint(
             self.sectors,
@@ -397,11 +440,9 @@ class ProductionBlock:
         )
 
         def capital_demand_foc_rule(model, j):
-            """Capital demand from marginal productivity condition"""
-            # Simplified: pf_K * F_K = pva * marginal_share_K
-            # Avoid division by reformulating as: pf_K * F_K = pva * delta_k * KL
+            """Capital cost share: r*K = delta_k * pKL * KL  (uses pKL, not pva)"""
             return (model.pf['Capital'] * model.F['Capital', j] ==
-                    model.pva[j] * model.delta_k[j] * model.KL[j])
+                    model.pKL[j] * model.delta_k[j] * model.KL[j])
 
         self.model.eq_capital_demand_foc = pyo.Constraint(
             self.sectors,
@@ -412,29 +453,25 @@ class ProductionBlock:
         # Zero-profit conditions (price equations) - ThreeME approach with carbon costs
         def zero_profit_rule(model, j):
             """
-            Zero-profit condition: pz * Z = factor_costs + intermediate_costs + carbon_costs
-
-            Following ThreeME model structure:
-            pz = (pva * va_share + sum(pq[i] * a_ij[i,j]) + carbon_cost_per_unit)
-
-            Carbon costs from ETS policies are added as production cost
+            Zero-profit: pz*Z = pva*va_share*Z + sum_i(pz[i]*a_ij*Z) + Carbon_Cost
+            Uses pz[i] as proxy for intermediate input prices.
+            finalize_zero_profit() rebuilds this with pq[i] once TradeBlock is built.
             """
             sector_data = self.params['sectors'].get(j, {})
             va_share = (sector_data.get('value_added', 600) /
                         sector_data.get('gross_output', 1000) if sector_data.get('gross_output', 1000) > 0 else 0.7)
 
-            # Intermediate input costs
-            intermediate_cost = sum(model.a_ij[i, j] for i in self.sectors)
+            # Intermediate input costs: price * coefficient (pz proxy for now)
+            intermediate_cost = sum(model.pz[i] * model.a_ij[i, j] for i in self.sectors)
 
-            # Carbon cost per unit of output
-            # If Carbon_Cost variable exists from energy-environment block, include it
             if hasattr(model, 'Carbon_Cost'):
-                # Carbon cost per unit output: Carbon_Cost[j] / Z[j]
-                # To avoid division, reformulate as: pz * Z = pva * va_share * Z + intermediate_cost * Z + Carbon_Cost
-                return model.pz[j] * model.Z[j] == (model.pva[j] * va_share + intermediate_cost) * model.Z[j] + model.Carbon_Cost[j]
+                return (model.pz[j] * model.Z[j] ==
+                        model.pva[j] * va_share * model.Z[j] +
+                        intermediate_cost * model.Z[j] +
+                        model.Carbon_Cost[j])
             else:
-                # Fallback without carbon costs (base year or BAU without ETS)
-                return model.pz[j] == model.pva[j] * va_share + intermediate_cost
+                return (model.pz[j] * model.Z[j] ==
+                        (model.pva[j] * va_share + intermediate_cost) * model.Z[j])
 
         self.model.eq_zero_profit = pyo.Constraint(
             self.sectors,
@@ -493,6 +530,13 @@ class ProductionBlock:
         # Initialize factor prices
         for f in self.factors:
             self.model.pf[f].set_value(1.0)
+
+        # Initialize pKL (approximate dual cost with unit factor prices)
+        for j in self.sectors:
+            dl = pyo.value(self.model.delta_l[j])
+            dk = pyo.value(self.model.delta_k[j])
+            pKL_init = (1.0 / max(dl, 1e-8)) ** dl * (1.0 / max(dk, 1e-8)) ** dk
+            self.model.pKL[j].set_value(pKL_init)
 
         print("Production block initialization completed")
 
@@ -625,6 +669,46 @@ class ProductionBlock:
                 print(f"  - {warning}")
 
         return len(validation_results) == 0
+
+    def finalize_zero_profit(self):
+        """
+        Rebuild the zero-profit constraint with correct composite prices pq[i].
+        Must be called after IncomeExpenditureBlock and TradeBlock are constructed
+        so that model.pq exists.  Called from main_model.build_model().
+        """
+        if not hasattr(self.model, 'pq'):
+            print("  finalize_zero_profit: pq not found, keeping pz proxy")
+            return
+
+        if hasattr(self.model, 'eq_zero_profit'):
+            self.model.del_component('eq_zero_profit')
+
+        def zero_profit_final_rule(model, j):
+            sector_data = self.params['sectors'].get(j, {})
+            va_share = (sector_data.get('value_added', 600) /
+                        sector_data.get('gross_output', 1000)
+                        if sector_data.get('gross_output', 1000) > 0 else 0.7)
+
+            # Correct: composite consumer price pq[i] * technical coefficient
+            intermediate_cost = sum(model.pq[i] * model.a_ij[i, j]
+                                    for i in self.sectors)
+
+            if hasattr(model, 'Carbon_Cost'):
+                return (model.pz[j] * model.Z[j] ==
+                        model.pva[j] * va_share * model.Z[j] +
+                        intermediate_cost * model.Z[j] +
+                        model.Carbon_Cost[j])
+            else:
+                return (model.pz[j] * model.Z[j] ==
+                        (model.pva[j] * va_share + intermediate_cost) * model.Z[j])
+
+        self.model.eq_zero_profit = pyo.Constraint(
+            self.sectors,
+            rule=zero_profit_final_rule,
+            doc="Zero-profit with correct composite input prices pq[i]"
+        )
+        print("  finalize_zero_profit: rebuilt eq_zero_profit with pq[i] intermediate prices")
+
 
 # Testing function
 

@@ -109,10 +109,10 @@ class MarketClearingClosureBlock:
 
         # Factor market clearing
         def labor_market_clearing_rule(model):
-            """Labor supply = Labor demand * (1 + unemployment rate)"""
+            """FS * (1 - unemployment_rate) = total_labor_demand (employed workers)"""
             total_labor_demand = sum(model.F['Labour', j]
                                      for j in self.sectors)
-            return model.FS['Labour'] == total_labor_demand * (1 + model.unemployment_rate)
+            return model.FS['Labour'] * (1 - model.unemployment_rate) == total_labor_demand
 
         self.model.eq_labor_market_clearing = pyo.Constraint(
             rule=labor_market_clearing_rule,
@@ -181,15 +181,13 @@ class MarketClearingClosureBlock:
             doc="Savings-investment balance"
         )
 
-        # Government budget balance
-        def government_balance_rule(model):
-            """Government revenue - Government expenditure = Government balance"""
-            return model.government_balance == model.Y_G - (model.C_G + model.S_G)
-
-        self.model.eq_government_balance = pyo.Constraint(
-            rule=government_balance_rule,
-            doc="Government budget balance"
-        )
+        # NOTE: government_balance == Y_G - (C_G + S_G) is tautologically zero because
+        # income_expenditure_block already enforces Y_G = C_G + S_G.  Adding it as a
+        # separate constraint would redundantly force government_balance = 0 and waste
+        # a degree of freedom.  Instead fix government_balance to 0 explicitly so
+        # apply_closure_rule can unfix/use it for scenario analysis if needed.
+        if hasattr(self.model, 'government_balance'):
+            self.model.government_balance.fix(0.0)
 
         # Price level definition (CPI-based)
         def price_level_rule(model):

@@ -131,6 +131,11 @@ class ItalianCGEModel:
             self.model, self.calibrated_data)
         print("Macro indicators block created")
 
+        # Rebuild zero-profit with correct composite prices pq[i] now that
+        # IncomeExpenditureBlock and TradeBlock have defined pq on the model.
+        print("Finalising zero-profit price equations with composite input prices (pq)...")
+        self.blocks['production'].finalize_zero_profit()
+
         print("")
         self.print_model_statistics()
         print("Model building completed successfully")

@@ -86,14 +86,13 @@ class EnergyEnvironmentBlock:
                 sector_data = self.params['sectors'].get(user, {})
                 base_output = sector_data.get('gross_output', 1000)
                 co2_factor = sector_data.get('co2_factor', 0.5)
-                base_emissions = base_output * co2_factor * \
-                    0.001  # Convert to appropriate units
-            else:  # Household
+                base_emissions = base_output * co2_factor * 0.001
+            else:  # Household — use a generous upper bound to avoid init violations
                 hh_data = self.params['households'].get(user, {})
-                base_emissions = hh_data.get(
-                    'consumption', 40000) * 0.002  # Rough estimate
+                # 15 % of consumption as emissions proxy (covers MWh-scaled values)
+                base_emissions = hh_data.get('consumption', 40000) * 0.15
 
-            return (0.0, base_emissions * 5.0)
+            return (0.0, max(base_emissions * 10.0, 100000.0))
 
         self.model.EM = pyo.Var(
             self.sectors + self.household_regions,
